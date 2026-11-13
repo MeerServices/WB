@@ -2,7 +2,7 @@
 
 Werkbonnen uit MSWMenuX invullen op telefoon, tablet of laptop en door de klant laten tekenen.
 
-App-adres: **https://meerservices.github.io/WB-werkbonnen/**
+App-adres: **https://meerservices.github.io/WB/**
 
 ## Hoe het werkt
 

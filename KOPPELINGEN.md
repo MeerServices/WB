@@ -2,7 +2,7 @@
 
 Werkbonnen heeft één sleutel nodig: een Google **client-ID**. Die is niet geheim, want hij staat altijd zichtbaar in een web-app. Hij komt in `config.js`.
 
-App-adres: `https://meerservices.github.io/WB-werkbonnen/`
+App-adres: `https://meerservices.github.io/WB/`
 
 ## Google: client-ID
 
