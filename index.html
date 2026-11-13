@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Werkbonnen</title>
+<meta name="description" content="Werkbonnen uit MSWMenuX invullen en laten tekenen.">
+<meta name="theme-color" content="#2f47b8">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css?v=1.0">
+</head>
+<body>
+<div id="login" class="login" hidden>
+  <div class="lcard">
+    <img src="icons/icon.svg" width="64" height="64" alt="">
+    <h1>Werkbonnen</h1>
+    <p class="muted">Log in met het Google-account waarmee de map Werkbonnen met je gedeeld is.</p>
+    <button class="btn primary big" type="button" id="loginBtn">Inloggen met Google</button>
+    <div id="loginMsg" class="note" hidden></div>
+  </div>
+</div>
+<div id="reauth" class="reauth" hidden><span>Je Google-login is verlopen. Je werk staat veilig op dit apparaat.</span><button class="btn small primary" type="button" id="reauthBtn">Opnieuw inloggen</button></div>
+<div class="wrap">
+  <section id="listView">
+    <div class="top">
+      <div class="ttl"><h1>Werkbonnen</h1><span class="sub">Uit MSWMenuX, via Google Drive › Werkbonnen › Open</span><span class="whoami" id="whoami" hidden></span><span class="acct"><span id="netState" class="net" hidden></span><button type="button" class="linkbtn" id="signOut" hidden>Uitloggen</button></span></div>
+      <div class="row"><button class="btn primary" id="sync">Bonnen ophalen uit Drive</button><button class="btn dots" type="button" data-setup aria-label="Instellingen: tarieven">⋯</button></div>
+    </div>
+    <div id="msg" class="note" hidden></div>
+    <div class="row" style="margin-top:12px">
+      <div class="tabs" role="group" aria-label="Filter">
+        <button data-f="open" aria-pressed="true"><span class="ic" aria-hidden="true">📝</span>Open<span class="c" id="cOpen"></span></button>
+        <button data-f="signed" aria-pressed="false"><span class="ic" aria-hidden="true">✅</span>Getekend<span class="c" id="cSigned"></span></button>
+      </div>
+      <input type="search" class="search" id="q" placeholder="Zoek op nummer, klant of medewerker" aria-label="Zoeken">
+    </div>
+    <div class="list" id="list"><p class="empty">Werkbonnen laden…</p></div>
+    <p class="foot">Zet een werkbon vanuit MSWMenuX als PDF in de Drive-map <b>Werkbonnen/Open</b> en kies <b>Bonnen ophalen uit Drive</b>. Getekende bonnen komen als PDF in <b>Werkbonnen/Getekend</b>.</p>
+  </section>
+
+  <section id="bonView" hidden>
+    <div class="top">
+      <div class="ttl"><h1>Werkbon <span class="nr" id="bNr"></span></h1><span class="sub" id="bSub"></span></div>
+      <div class="row"><span class="saved" id="saved"></span><button class="btn" id="back">Alle bonnen</button><button class="btn dots" type="button" data-setup aria-label="Instellingen: tarieven">⋯</button></div>
+    </div>
+    <div id="bMsg" class="note" hidden></div>
+    <div class="head"><div class="facts" id="facts"></div>
+      <details class="origpdf"><summary>Origineel uit MSWMenuX bekijken</summary><div class="preview" id="origPrev" style="margin-top:8px"></div></details>
+    </div>
+
+    <fieldset id="edit" style="border:0;padding:0;margin:0;min-width:0">
+    <section class="sec">
+      <header><h2>Reizen en werktijden</h2><small>Tik op Nu om de huidige tijd in te vullen</small></header>
+      <div class="times">
+        <div class="trow"><div class="nm">Voorbereiding<small>telt als werkuren</small></div>
+          <div class="fld"><label class="lbl" for="t_pv">Van</label><div class="tin"><input type="time" id="t_pv" data-k="voorbVan"><button type="button" data-now="t_pv">Nu</button></div></div>
+          <div class="fld"><label class="lbl" for="t_pt">Tot</label><div class="tin"><input type="time" id="t_pt" data-k="voorbTot"><button type="button" data-now="t_pt">Nu</button></div></div>
+          <div class="tot" id="tot_p"></div></div>
+        <div class="trow"><div class="nm">Heenreis<small>reisuren</small></div>
+          <div class="fld"><label class="lbl" for="t_hv">Van</label><div class="tin"><input type="time" id="t_hv" data-k="heenVan"><button type="button" data-now="t_hv">Nu</button></div></div>
+          <div class="fld"><label class="lbl" for="t_ht">Tot</label><div class="tin"><input type="time" id="t_ht" data-k="heenTot"><button type="button" data-now="t_ht">Nu</button></div></div>
+          <div class="tot" id="tot_h"></div></div>
+        <div class="trow"><div class="nm">Op locatie<small>aankomst en vertrek</small></div>
+          <div class="fld"><label class="lbl" for="t_wv">Aankomst</label><div class="tin"><input type="time" id="t_wv" data-k="werkVan"><button type="button" data-now="t_wv">Nu</button></div></div>
+          <div class="fld"><label class="lbl" for="t_wt">Vertrek</label><div class="tin"><input type="time" id="t_wt" data-k="werkTot"><button type="button" data-now="t_wt">Nu</button></div></div>
+          <div class="tot" id="tot_w"></div></div>
+        <div class="trow"><div class="nm">Terugreis<small>reisuren</small></div>
+          <div class="fld"><label class="lbl" for="t_tv">Van</label><div class="tin"><input type="time" id="t_tv" data-k="terugVan"><button type="button" data-now="t_tv">Nu</button></div></div>
+          <div class="fld"><label class="lbl" for="t_tt">Tot</label><div class="tin"><input type="time" id="t_tt" data-k="terugTot"><button type="button" data-now="t_tt">Nu</button></div></div>
+          <div class="tot" id="tot_t"></div></div>
+        <div class="tsum"><span>Reisuren <b id="sumR">0:00</b></span><span>Werkuren <b id="sumW">0:00</b></span></div>
+      </div>
+      <div class="fld"><label class="lbl" for="vertrek">Route naar de klant</label>
+        <div class="route"><input class="inp" id="vertrek" data-k="vertrekadres" placeholder="Vertrekadres (leeg = je huidige locatie)"><a class="btn" id="routeBtn" target="_blank" rel="noopener">Route en reistijd</a></div>
+        <small class="muted" style="font-size:12.5px">Opent Google Maps met de route naar het bezoekadres. Neem daar het aantal kilometers over.</small></div>
+      <div class="kmrow">
+        <div class="fld"><label class="lbl" for="kmHeen">Km heenreis</label><input class="inp mono" id="kmHeen" data-k="kmHeen" inputmode="decimal" placeholder="0"></div>
+        <div class="fld"><label class="lbl" for="kmTerug">Km terugreis</label><input class="inp mono" id="kmTerug" data-k="kmTerug" inputmode="decimal" placeholder="zelfde als heen"></div>
+        <div class="fld"><span class="lbl">Totaal km</span><div class="inp mono" id="kmTot" style="background:var(--sunk)">0</div></div>
+      </div>
+    </section>
+
+    <section class="sec" id="kostSec">
+      <header><h2>Uren en bedragen</h2><small>Ex. btw. Alles is per bon aan te passen; ↺ zet terug naar berekend.</small></header>
+      <div class="fld" id="kMwF"><label class="lbl" for="kMw">Uurtarief van medewerker</label><select class="inp" id="kMw"></select></div>
+      <div class="ktab">
+        <span class="h first"></span><span class="h">Aantal</span><span class="h">Tarief €</span><span class="h r">Bedrag</span><span></span>
+        <div class="nm">Werkuren<small id="kWh"></small></div><input class="inp" data-kk="werkUren" inputmode="decimal" aria-label="Werkuren aantal"><input class="inp" data-kk="uurtarief" inputmode="decimal" aria-label="Uurtarief"><div class="amt" id="kA_werk"></div><button type="button" class="rs" data-kr="werkUren,uurtarief" aria-label="Werkuren terugzetten naar berekend" style="visibility:hidden">↺</button>
+        <div class="nm">Reistijd<small id="kRh"></small></div><input class="inp" data-kk="reisUren" inputmode="decimal" aria-label="Reisuren aantal"><input class="inp" data-kk="reisTarief" inputmode="decimal" aria-label="Reisuurtarief"><div class="amt" id="kA_reis"></div><button type="button" class="rs" data-kr="reisUren,reisTarief" aria-label="Reistijd terugzetten naar berekend" style="visibility:hidden">↺</button>
+        <div class="nm">Kilometers<small id="kKh"></small></div><input class="inp" data-kk="km" inputmode="decimal" aria-label="Aantal kilometers"><input class="inp" data-kk="kmTarief" inputmode="decimal" aria-label="Kilometertarief"><div class="amt" id="kA_km"></div><button type="button" class="rs" data-kr="km,kmTarief" aria-label="Kilometers terugzetten naar berekend" style="visibility:hidden">↺</button>
+        <div class="nm">Overig<small>materiaal, parkeren</small></div><input class="inp txt span2" data-kk="overigOms" placeholder="Omschrijving" aria-label="Omschrijving overige kosten" maxlength="120"><input class="inp" data-kk="overig" inputmode="decimal" placeholder="0,00" aria-label="Bedrag overige kosten" style="text-align:right"><span></span>
+      </div>
+      <div class="kkort"><label class="lbl" for="kKort">Korting</label><input class="inp" id="kKort" data-kk="korting" inputmode="decimal" placeholder="0"><select class="inp" data-kk="kortingType" aria-label="Soort korting"><option value="%">%</option><option value="€">€</option></select></div>
+      <div class="ksum" id="kSum"></div>
+    </section>
+
+    <section class="sec">
+      <header><h2>Werkzaamheden</h2><small>De tekst uit MSWMenuX blijft staan, jouw tekst komt eronder</small></header>
+      <div class="fld"><label class="lbl" for="constAanv">Constatering</label><div class="orig" id="oConst"></div><textarea class="inp" id="constAanv" data-k="constAanv" placeholder="Wat heb je aangetroffen?"></textarea></div>
+      <div class="fld"><label class="lbl" for="oplAanv">Oplossing</label><div class="orig" id="oOpl"></div><textarea class="inp" id="oplAanv" data-k="oplAanv" placeholder="Wat heb je gedaan?"></textarea></div>
+    </section>
+
+    <section class="sec">
+      <header><h2>Foto's</h2><small id="phCount"></small></header>
+      <div class="photos" id="photos"></div>
+      <span class="muted" id="phMsg" style="font-size:13px" role="status"></span>
+    </section>
+
+    <section class="sec">
+      <header><h2>Nog in te plannen taken</h2></header>
+      <ul class="tasks" id="tasks"></ul>
+      <form class="addt" id="taskForm"><input class="inp" id="taskIn" placeholder="Nieuwe taak, bijvoorbeeld: switch vervangen" maxlength="200"><button class="btn" type="submit">Toevoegen</button></form>
+    </section>
+
+    <section class="sec">
+      <header><h2>Materialen en onkosten</h2><small>Alleen invullen als het van toepassing is</small></header>
+      <div class="grid2">
+        <div class="fld"><label class="lbl" for="mat">Geleverde of ingenomen goederen</label><textarea class="inp" id="mat" data-k="materialen" style="min-height:70px" placeholder="Bijv. 1x patchkabel 2m"></textarea></div>
+        <div class="fld"><label class="lbl" for="onk">Onkosten</label><textarea class="inp" id="onk" data-k="onkosten" style="min-height:70px" placeholder="Bijv. parkeren € 4,50"></textarea></div>
+      </div>
+    </section>
+    </fieldset>
+
+    <section class="sec" id="signSec">
+      <header><h2>Aftekenen door de klant</h2></header>
+      <p class="decl">Hierbij verklaart opdrachtgever de geleverde apparatuur, diensten &amp; software naar volledige tevredenheid te hebben ontvangen en het factuurbedrag binnen 8 dagen na factuurdatum te voldoen. Minimaal wordt 1 uur in rekening gebracht.</p>
+      <p class="note warn" id="roNote" hidden>Je hebt alleen leesrechten. Vraag een admin om je rechten als je bonnen wilt invullen of laten tekenen.</p>
+      <div id="signOpen">
+        <div class="grid2">
+          <div class="fld"><label class="lbl" for="klantNaam">Naam in blokletters</label><input class="inp" id="klantNaam" data-k="klantNaam" autocomplete="off" style="text-transform:uppercase"></div>
+          <div class="fld"><span class="lbl">Datum</span><div class="inp mono" id="signDate" style="background:var(--sunk)"></div></div>
+        </div>
+        <div class="fld" style="margin-top:10px"><span class="lbl">Handtekening klant</span>
+          <div class="sig" id="sigBox"><canvas id="sig"></canvas><div class="base"></div><span class="hint" id="sigHint">Teken hier met je vinger of muis</span></div></div>
+        <div class="row" style="margin-top:10px;justify-content:space-between">
+          <button class="btn ghost" id="sigClear" type="button">Handtekening wissen</button>
+          <button class="btn primary" id="signBtn" type="button">Ondertekenen en PDF maken</button>
+        </div>
+      </div>
+      <div id="signDone" hidden>
+        <div class="row" style="align-items:flex-start;gap:16px">
+          <div class="sigimg"><img id="sigImg" alt="Handtekening klant"></div>
+          <div style="display:grid;gap:4px"><b id="signWho"></b><span class="muted" id="signWhen"></span><span id="driveState"></span></div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn primary" id="uploadBtn" hidden>Opnieuw naar Drive sturen</button>
+          <a class="btn" id="driveLink" target="_blank" rel="noopener" hidden>Openen in Google Drive</a>
+          <button class="btn" id="saveBtn" hidden>PDF opslaan</button>
+          <button class="btn ghost" id="reopenBtn">Bon weer openzetten</button>
+        </div>
+        <div class="confirm" id="reopenAsk" hidden><span>De handtekening wordt gewist. Doorgaan?</span><button class="btn small danger" id="reopenYes">Ja, openzetten</button><button class="btn small" id="reopenNo">Nee</button></div>
+      </div>
+      <div id="signMsg" class="note" hidden role="alert" style="margin-top:10px"></div>
+      <div class="busyline" id="signBusy" hidden><span class="spin"></span><span id="signBusyTxt"></span></div>
+      <div class="preview" id="signPrev"></div>
+    </section>
+  </section>
+</div>
+
+
+<dialog class="set" id="setDlg" aria-labelledby="setTtl"><form method="dialog" id="setForm">
+  <div class="row" style="justify-content:space-between"><h2 id="setTtl">Instellingen</h2><button class="btn ghost small" value="cancel" formnovalidate aria-label="Sluiten">✕</button></div>
+  <div class="stabs" role="tablist"><button type="button" role="tab" data-st="tar" aria-selected="true"><span class="ic" aria-hidden="true">👥</span>Tarieven en rechten</button><button type="button" role="tab" data-st="drive" aria-selected="false"><span class="ic" aria-hidden="true">📁</span>Drive-mappen</button><button type="button" role="tab" data-st="log" aria-selected="false"><span class="ic" aria-hidden="true">📋</span>Log</button></div>
+  <div id="setMsg" class="note" hidden></div>
+  <div data-sp="tar" style="display:grid;gap:14px">
+  <fieldset id="setFs" style="border:0;padding:0;margin:0;min-width:0;display:grid;gap:12px">
+  <div class="grid2">
+    <div class="fld"><label class="lbl" for="s_uur">Standaard uurtarief €</label><input class="inp mono" id="s_uur" inputmode="decimal" placeholder="bijv. 75,00"></div>
+    <div class="fld"><label class="lbl" for="s_reis">Reistijd per uur €</label><input class="inp mono" id="s_reis" inputmode="decimal" placeholder="leeg = uurtarief"></div>
+    <div class="fld"><label class="lbl" for="s_km">Km-vergoeding per km €</label><input class="inp mono" id="s_km" inputmode="decimal" placeholder="bijv. 0,23"></div>
+    <div class="fld"><label class="lbl" for="s_btw">Btw %</label><input class="inp mono" id="s_btw" inputmode="decimal" placeholder="21"></div>
+    <div class="fld"><label class="lbl" for="s_rnd">Uren afronden</label><select class="inp" id="s_rnd"><option value="0">Niet afronden</option><option value="15">Op kwartier naar boven</option><option value="30">Op half uur naar boven</option></select></div>
+    <label class="row" style="font-size:14.5px;padding-top:18px"><input type="checkbox" id="s_min"> Minimaal 1 werkuur rekenen</label>
+  </div>
+  <div class="fld"><span class="lbl">Medewerkers, rechten en uurtarief</span>
+    <div class="mwh"><span></span><span>Naam (zoals in MSWMenuX)</span><span>E-mail (Google)</span><span>Rechten</span><span>Uurtarief €</span><span></span></div>
+    <div class="mwl" id="s_mws"></div>
+    <div class="row"><button class="btn small" type="button" id="s_add">+ Medewerker</button></div>
+    <small class="muted" style="font-size:12.5px">Net als in de Weekplanner: je Google-account is je login en wordt herkend aan het e-mailadres (of aan de naam als er geen e-mail is ingevuld). Iedereen in de lijst moet ook toegang hebben tot de Drive-map Werkbonnen. Admin mag alles, ook tarieven, rechten, bonnen weer openzetten en de log bekijken. Gebruiker vult bonnen in en laat ze tekenen. Alleen lezen kan alleen kijken. Wie niet in de lijst staat, kan alleen lezen. Zonder eigen tarief geldt het standaard uurtarief.</small></div>
+  </fieldset>
+  <div class="row" style="justify-content:flex-end"><button class="btn" value="cancel" formnovalidate>Sluiten</button><button class="btn primary" type="button" id="setSave">Opslaan</button></div>
+  </div>
+  <div data-sp="drive" hidden style="display:grid;gap:10px">
+    <p class="muted" style="margin:0;font-size:13.5px">De map Werkbonnen in Google Drive. Tik op een map om hem te openen, op een bestand om het in Drive te bekijken.</p>
+    <div id="driveTree"></div>
+    <div class="row"><button class="btn small" type="button" id="driveReload">Vernieuwen</button><a class="btn small" target="_blank" rel="noopener" id="driveOpen" href="https://drive.google.com/drive/my-drive">Openen in Google Drive</a></div>
+  </div>
+  <div data-sp="log" hidden style="display:grid;gap:10px">
+    <p class="muted" style="margin:0;font-size:13.5px">Wie wat gedaan heeft met de werkbonnen en instellingen, de afgelopen 90 dagen, nieuwste bovenaan.</p>
+    <input type="search" class="search" id="logQ" placeholder="Zoek op naam, bon of actie" aria-label="Zoek in log">
+    <div class="logwrap"><table class="logt"><thead><tr><th>Wanneer</th><th>Wie</th><th>Wat</th><th>Bon</th><th>Details</th></tr></thead><tbody id="logBody"></tbody></table></div>
+    <p class="empty" id="logEmpty" hidden style="padding:8px">Nog niets gelogd.</p>
+  </div>
+</form></dialog>
+<dialog class="ask" id="askDlg" aria-labelledby="askTtl"><h2 id="askTtl">Weet u het zeker?</h2><p id="askTxt"></p><div class="row" style="justify-content:flex-end"><button class="btn" type="button" id="askNo">Nee, terug</button><button class="btn danger" type="button" id="askYes">Ja, verwijderen</button></div></dialog>
+<div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-label="Foto vergroot"><img id="lbImg" alt=""><div class="lbtop"><span id="lbCap"></span><button type="button" id="lbClose" aria-label="Sluiten">✕</button></div><div class="lbbar"><button type="button" id="lbOut" aria-label="Uitzoomen">−</button><button type="button" id="lbFit" style="font-size:14px">Passend</button><button type="button" id="lbIn" aria-label="Inzoomen">+</button></div></div>
+<script src="vendor/pdf-lib-1.17.1.min.js"></script>
+<script src="vendor/pdf-3.11.174.min.js"></script>
+<script>pdfjsLib.GlobalWorkerOptions.workerSrc="vendor/pdf.worker-3.11.174.min.js";</script>
+<script src="config.js?v=1.0"></script>
+<script src="drive.js?v=1.0"></script>
+<script src="app.js?v=1.0"></script>
+<script>if("serviceWorker" in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
+</body>
+</html>
