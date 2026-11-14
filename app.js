@@ -532,7 +532,15 @@ function openDriveTab(force){const box=$("driveTree");if(box.childElementCount&&
   const d=box.querySelector("details");fillFolder(FOLDER().root,d.querySelector("ul"));d.dataset.loaded="1";$("driveOpen").href="https://drive.google.com/drive/folders/"+FOLDER().root}
 $("driveTree").addEventListener("toggle",e=>{const d=e.target;if(!d.open||d.dataset.loaded)return;d.dataset.loaded="1";fillFolder(d.dataset.fid,d.querySelector("ul"))},true);
 $("driveReload").onclick=()=>openDriveTab(true);
-$("appTitle").onclick=()=>$("infoDlg").showModal();
+(function(){const t=$("appTitle"),d=$("infoDlg"),hov=matchMedia("(hover:hover) and (pointer:fine)");let ot,ct;
+  const pop=()=>d.classList.contains("pop");
+  const closeSoon=()=>{clearTimeout(ct);ct=setTimeout(()=>{if(pop())d.close()},350)};
+  t.onmouseenter=()=>{clearTimeout(ct);if(!hov.matches||d.open)return;ot=setTimeout(()=>{const r=t.getBoundingClientRect();d.style.top=Math.round(r.bottom+8)+"px";d.style.left=Math.round(Math.max(12,r.left))+"px";d.classList.add("pop");d.show();if(d.contains(document.activeElement))document.activeElement.blur()},200)};
+  t.onmouseleave=()=>{clearTimeout(ot);closeSoon()};
+  d.onmouseenter=()=>clearTimeout(ct);d.onmouseleave=()=>{if(pop())closeSoon()};
+  d.addEventListener("close",()=>{d.classList.remove("pop");d.style.top=d.style.left=""});
+  t.onclick=()=>{clearTimeout(ot);if(pop())d.close();if(!d.open)d.showModal()};
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&pop())d.close()});})();
 $("signOut").onclick=()=>askSure("Uitloggen op dit apparaat? Wat nog niet in Drive staat blijft hier bewaard tot je weer inlogt.").then(ok=>{if(ok)window.WBDrive.signOut()});
 /* ---------- settings (⋯, admin only) ---------- */
 function setTab(t){document.querySelectorAll("[data-st]").forEach(b=>b.setAttribute("aria-selected",b.dataset.st===t?"true":"false"));document.querySelectorAll("[data-sp]").forEach(p=>p.hidden=p.dataset.sp!==t);show($("setMsg"),"");

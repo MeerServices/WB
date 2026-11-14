@@ -229,3 +229,4 @@ dialog.info h2 .ver{font-family:var(--f-mono);font-size:.6em;color:var(--accent)
 .help h3{display:flex;align-items:center;gap:8px;font-size:16px;margin:18px 0 0}
 .help h3 .i{width:20px;height:20px;color:var(--accent)}
 .help p .i{width:15px;height:15px;vertical-align:-2px}
+dialog.info.pop{position:fixed;margin:0;z-index:60;max-height:calc(100dvh - 120px);overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.18)}
