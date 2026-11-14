@@ -45,7 +45,7 @@
     "Debiteurnr.": "Customer no.", "Tarief ex. btw": "Rate excl. VAT", "Klant": "Customer", "Bezoekadres": "Visit address", "Telefoon": "Phone",
     "Opdracht": "Assignment", "Reden": "Reason", "Afgesproken met": "Arranged with", "Medewerker": "Employee", "Servicecontract": "Service contract",
     "Objectnr.": "Object no.", "Projectnr.": "Project no.", "Gepland": "Planned",
-    "(uit tarieventabel)": "(from rate table)", "leeg, vul tarieven in via het tandwiel": "empty, set rates via the gear icon",
+    "(uit tarieventabel)": "(from rate table)", "leeg, vul tarieven in via de gebruikersknop": "empty, set rates via the user button",
     "Reizen en werktijden": "Travel and working hours", "Tik op Nu om de huidige tijd in te vullen": "Tap Now to fill in the current time",
     "Voorbereiding": "Preparation", "telt als werkuren": "counts as working hours", "Van": "From", "Nu": "Now", "Tot": "To",
     "Heenreis": "Outbound trip", "reisuren": "travel hours", "Op locatie": "On site", "aankomst en vertrek": "arrival and departure",

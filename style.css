@@ -251,3 +251,12 @@ dialog.info.pop{position:fixed;margin:0;z-index:60;max-height:calc(100dvh - 120p
 .umenu #signOut{justify-content:center;width:100%}
 #listView .top>.row{flex-basis:100%}
 @media (max-width:440px){.userbtn span{display:none}.userbtn{padding:6px 8px}}
+.uadmin{display:grid;gap:2px;border-top:1px solid var(--line);padding-top:8px}
+.uitem{display:flex;align-items:center;gap:10px;border:0;background:none;font:inherit;font-size:14.5px;font-weight:500;color:var(--fg);padding:9px 8px;border-radius:8px;cursor:pointer;text-align:left}
+.uitem:hover,.uitem:focus-visible{background:var(--accent-soft)}
+.uitem .i{color:var(--accent);width:20px;height:20px}
+@media (max-width:400px){[data-drive] .dlbl{display:none}}
+#listView .top>.row{display:flex;flex-wrap:nowrap;gap:8px}
+#listView .top>.row .btn{padding-inline:10px;gap:5px;white-space:nowrap}
+#listView [data-drive]{flex:none}
+#listView #sync{min-width:0}#listView #sync .txt{overflow:hidden;text-overflow:ellipsis}

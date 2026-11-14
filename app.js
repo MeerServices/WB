@@ -295,7 +295,7 @@ function closeBon(){flush();logFlush(true);if(unsubBon)unsubBon();if(unsubPh)uns
 function fillBon(){
   if(!cur)return;const v=cur.velden||{},inv=cur.invoer||{};const signed=cur.status==="getekend";
   $("bNr").textContent=v.nr||"";$("bSub").textContent=[v.klant,v.plandatum].filter(Boolean).join(" · ");
-  const tr=pdfTarief(v)!=null?v.tarief:(()=>{const K=signed&&cur.kosten?cur.kosten:kostCalc(cur);return K.rows[0].rate?eur(K.rows[0].rate)+" (uit tarieventabel)":"leeg, vul tarieven in via het tandwiel"})();
+  const tr=pdfTarief(v)!=null?v.tarief:(()=>{const K=signed&&cur.kosten?cur.kosten:kostCalc(cur);return K.rows[0].rate?eur(K.rows[0].rate)+" (uit tarieventabel)":"leeg, vul tarieven in via de gebruikersknop"})();
   const f=[["Debiteurnr.",v.debnr],["Tarief ex. btw",tr],["Klant",[v.klant,v.contact].filter(Boolean).join(", ")],["Bezoekadres",v.bezoekadres],["Telefoon",v.telefoon],["Opdracht",v.opdracht],["Reden",v.reden],["Afgesproken met",v.afgesproken],["Medewerker",v.medewerker],["Servicecontract",v.contractnr],["Objectnr.",v.objectnr],["Projectnr.",v.projectnr],["Gepland",[v.plandatum,v.plantijd&&v.plantijd!=="0:00"?v.plantijd:""].filter(Boolean).join(" om ")]].filter(x=>x[1]);
   $("facts").innerHTML=f.map(x=>'<div class="fact"><span>'+x[0]+'</span><b data-no-i18n>'+esc(x[1])+'</b></div>').join("");
   $("oConst").textContent=v.constatering||"";$("oOpl").textContent=v.oplossing||"";
@@ -499,7 +499,7 @@ function computeRole(){roleMw=null;
   roleMw=(SET.medewerkers||[]).find(isMe)||null;
   role=roleMw?(roleMw.rol||"gebruiker"):"lezen";if(acct.write===false)role="lezen"}
 function applyRole(){computeRole();
-  document.querySelectorAll("[data-setup]").forEach(b=>b.hidden=!isAdmin());
+  document.querySelectorAll("[data-drive]").forEach(b=>b.hidden=!isAdmin());$("userAdmin").hidden=!isAdmin();
   $("sync").disabled=!canWrite();
   const w=$("whoami");if(acct){$("userWrap").hidden=false;$("userName").textContent=String(myName()).split(" ")[0];$("userEmail").textContent=acct.me.email||"";w.innerHTML="Ingelogd als <b>"+esc(myName())+"</b> ("+(acct.me.isOwner?"Admin":roleName(role))+")"+(!acct.me.isOwner&&!roleMw?" · niet als medewerker herkend, alleen lezen":"")}else $("userWrap").hidden=true;
   if(cur)fillBon()}
@@ -550,10 +550,12 @@ function setTab(t){document.querySelectorAll("[data-st]").forEach(b=>b.setAttrib
   if(t==="drive")openDriveTab();if(t==="log")openLogTab()}
 document.querySelectorAll("[data-st]").forEach(b=>b.onclick=()=>setTab(b.dataset.st));
 function mwRow(m){return '<div class="mw" data-mwid="'+esc(m.id||"")+'"><span class="grip" tabindex="0" role="button" aria-label="Verslepen (of pijltjes omhoog en omlaag)" title="Sleep om de volgorde te veranderen">'+I("grip")+'</span><input class="inp" data-mwn value="'+esc(m.naam||"")+'" placeholder="Naam" aria-label="Naam medewerker" maxlength="80"><input class="inp" data-mwl value="'+esc(m.login||"")+'" placeholder="naam@bedrijf.nl" aria-label="E-mail (Google)" type="email" autocomplete="off" maxlength="80"><select class="inp" data-mwr aria-label="Rechten">'+ROLES.map(r=>'<option value="'+r[0]+'"'+((m.rol||"gebruiker")===r[0]?" selected":"")+'>'+r[1]+'</option>').join("")+'</select><input class="inp mono" data-mwt value="'+esc(m.uurtarief||"")+'" inputmode="decimal" placeholder="standaard" aria-label="Uurtarief"><button type="button" data-mwdel aria-label="Medewerker verwijderen">'+I("trash")+'</button></div>'}
-function openSet(){if(!isAdmin())return;const S=SET;$("s_uur").value=S.uurtarief||"";$("s_reis").value=S.reisTarief||"";$("s_km").value=S.kmTarief||"";$("s_btw").value=S.btw??"21";$("s_rnd").value=S.afronden||"0";$("s_min").checked=S.minUur!==false;
-  $("s_mws").innerHTML=(S.medewerkers||[]).map(mwRow).join("");setTab("tar");
+const SET_TTL={tar:"Tarieven en rechten",drive:"Drive-mappen",log:"Log"};
+function openSet(tab){if(!isAdmin())return;tab=SET_TTL[tab]?tab:"tar";$("setTtl").textContent=SET_TTL[tab];const S=SET;$("s_uur").value=S.uurtarief||"";$("s_reis").value=S.reisTarief||"";$("s_km").value=S.kmTarief||"";$("s_btw").value=S.btw??"21";$("s_rnd").value=S.afronden||"0";$("s_min").checked=S.minUur!==false;
+  $("s_mws").innerHTML=(S.medewerkers||[]).map(mwRow).join("");setTab(tab);
   if(!$("setDlg").open)$("setDlg").showModal()}
-document.querySelectorAll("[data-setup]").forEach(b=>b.onclick=openSet);
+document.querySelectorAll("[data-drive]").forEach(b=>b.onclick=()=>openSet("drive"));
+document.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{$("userMenu").hidden=true;$("userBtn").setAttribute("aria-expanded","false");openSet(b.dataset.open)});
 $("setForm").addEventListener("submit",e=>{if(!e.submitter||e.submitter.value!=="cancel"){e.preventDefault();if(!$("setSave").closest("[data-sp]").hidden)$("setSave").click()}});
 $("s_add").onclick=()=>{$("s_mws").insertAdjacentHTML("beforeend",mwRow({}));$("s_mws").lastElementChild.querySelector("input").focus()};
 $("s_mws").onclick=async e=>{const b=e.target.closest("[data-mwdel]");if(!b)return;const row=b.parentElement;const n=row.querySelector("[data-mwn]").value.trim()||"deze medewerker";if(await askSure(n+" uit de lijst verwijderen? Dit wordt definitief bij Opslaan."))row.remove()};
