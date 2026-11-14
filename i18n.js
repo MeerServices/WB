@@ -132,7 +132,7 @@
     "Wanneer": "When", "Wie": "Who", "Wat": "What", "Bon": "Work order", "Details": "Details", "Nog niets gelogd.": "Nothing logged yet.",
     "Zoek op naam, bon of actie": "Search by name, work order or action", "Zoek in log": "Search log",
     "Ingelezen uit Drive": "Imported from Drive", "Aangepast": "Changed", "Ondertekend": "Signed", "Naar Drive gestuurd": "Sent to Drive",
-    "Instellingen aangepast": "Settings changed", "Weer opengezet": "Reopened",
+    "Instellingen aangepast": "Settings changed", "Verwijderd": "Removed", "PDF niet meer in Drive › Werkbonnen › Open": "PDF no longer in Drive › Werkbonnen › Open", "Weer opengezet": "Reopened",
     // vragen en lightbox
     "Weet u het zeker?": "Are you sure?", "Nee, terug": "No, go back", "Ja, verwijderen": "Yes, delete",
     "Uitloggen op dit apparaat? Wat nog niet in Drive staat blijft hier bewaard tot je weer inlogt.": "Sign out on this device? Anything not yet in Drive stays here until you sign in again.",
@@ -142,6 +142,7 @@
   const PATTERNS = [
     [/^(\d+) nieuwe bon ingelezen\.$/, "$1 new work order imported."], [/^(\d+) nieuwe bonnen ingelezen\.$/, "$1 new work orders imported."],
     [/^Inlezen (\d+) van (\d+)…$/, "Reading $1 of $2…"],
+    [/^(\d+) bon weggehaald, de PDF staat niet meer in de map Open\.$/, "$1 work order removed, its PDF is no longer in the Open folder."], [/^(\d+) bonnen weggehaald, de PDF staat niet meer in de map Open\.$/, "$1 work orders removed, their PDF is no longer in the Open folder."],
     [/^Opgeslagen om (.+)$/, "Saved at $1"], [/^Getekend op (.+)$/, "Signed on $1"], [/ · getekend (\S+)$/, " · signed $1"],
     [/^(\d+) wijziging wacht op (Drive|internet)$/, (m, n, w) => `${n} change waiting for ${w === "Drive" ? "Drive" : "internet"}`],
     [/^(\d+) wijzigingen wachten op (Drive|internet)$/, (m, n, w) => `${n} changes waiting for ${w === "Drive" ? "Drive" : "internet"}`],

@@ -245,6 +245,13 @@ async function syncDrive(){if(!canWrite())return;
     const r=await mcp.callTool(DRIVE,"search_files",{query:"parentId = '"+FOLDER().open+"' and mimeType = 'application/pdf'",excludeContentSnippets:true,pageSize:100},{cache:false});
     const files=(r.payload&&r.payload.files)||[];
     const known=new Set(bonnen.map(b=>b.id));const nieuw=files.filter(f=>!known.has(f.id));
+    // open bonnen whose PDF is no longer in Werkbonnen/Open (deleted or moved in Drive) leave the app too; signed ones stay
+    const inDrive=new Set(files.map(f=>f.id));const weg=bonnen.filter(b=>b.status!=="getekend"&&!inDrive.has(b.id));
+    for(const b of weg){
+      try{const ph=await db.collection("bonnen/"+b.id+"/fotos").get();for(const d of ph.docs)await db.doc("bonnen/"+b.id+"/fotos/"+d.id).delete()}catch(e){}
+      await db.doc("bonnen/"+b.id).delete();LS.del("wb:"+b.id);LS.del("wbsig:"+b.id);
+      logWrite("Verwijderd",(b.velden||{}).nr,"PDF niet meer in Drive › Werkbonnen › Open");
+      if(curId===b.id)closeBon()}
     let ok=0,fail=[];
     for(const f of nieuw){btn.textContent="Inlezen "+(ok+fail.length+1)+" van "+nieuw.length+"…";
       try{const d=await mcp.callTool(DRIVE,"download_file_content",{fileId:f.id},{cache:false});const b64=d.payload&&d.payload.content;if(!b64)throw new Error("leeg bestand");
@@ -254,6 +261,7 @@ async function syncDrive(){if(!canWrite())return;
         await db.doc("bonnen/"+f.id).set({bestand:f.title||"",chunks:1,status:"open",velden,invoer,klantNaam:"",geimporteerd:Date.now(),bijgewerkt:Date.now()});ok++;logWrite("Ingelezen uit Drive",velden.nr,f.title||"");
       }catch(e){fail.push((f.title||f.id)+": "+(e&&e.code?driveErr(e):esc(e&&e.message||e)))}}
     const parts=[];parts.push(nieuw.length?ok+" nieuwe "+(ok===1?"bon":"bonnen")+" ingelezen.":"Geen nieuwe bonnen in de map Open.");
+    if(weg.length)parts.push(weg.length+" "+(weg.length===1?"bon":"bonnen")+" weggehaald, de PDF staat niet meer in de map Open.");
     if(fail.length)parts.push("<b>Niet gelukt:</b><br>"+fail.join("<br>"));
     show(msg,parts.join(" "),fail.length?"warn":"ok");
     // also retry uploads that are waiting
@@ -606,6 +614,7 @@ new ResizeObserver(()=>sizeSig()).observe($("sigBox"));
   db.collection("bonnen").onSnapshot(s=>{bonnen=s.docs.map(d=>Object.assign({id:d.id},thaw(d.data())));renderList();first()},e=>{first();$("list").innerHTML='<p class="empty">De werkbonnen konden niet geladen worden. Ververs de pagina.</p>'});
   await ready;
   if(!mcp)show($("msg"),driveErr({code:"not_granted"}),"warn");
-  else{let st="prompt";try{st=await perms.state("mcp:"+DRIVE)}catch(e){}if(st==="granted"&&canWrite())syncDrive()}
+  else{let st="prompt";try{st=await perms.state("mcp:"+DRIVE)}catch(e){}if(st==="granted"&&canWrite()){syncDrive();let lastSync=Date.now();
+    document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&!$("listView").hidden&&Date.now()-lastSync>60000&&!$("sync").disabled){lastSync=Date.now();syncDrive()}})}}
 })();
 })();
