@@ -501,7 +501,7 @@ function computeRole(){roleMw=null;
 function applyRole(){computeRole();
   document.querySelectorAll("[data-setup]").forEach(b=>b.hidden=!isAdmin());
   $("sync").disabled=!canWrite();
-  const w=$("whoami");if(acct){w.hidden=false;w.innerHTML="Ingelogd als <b>"+esc(myName())+"</b> ("+(acct.me.isOwner?"Admin":roleName(role))+")"+(!acct.me.isOwner&&!roleMw?" · niet als medewerker herkend, alleen lezen":"")}else w.hidden=true;
+  const w=$("whoami");if(acct){$("userWrap").hidden=false;$("userName").textContent=String(myName()).split(" ")[0];$("userEmail").textContent=acct.me.email||"";w.innerHTML="Ingelogd als <b>"+esc(myName())+"</b> ("+(acct.me.isOwner?"Admin":roleName(role))+")"+(!acct.me.isOwner&&!roleMw?" · niet als medewerker herkend, alleen lezen":"")}else $("userWrap").hidden=true;
   if(cur)fillBon()}
 /* ---------- log ---------- */
 function logWrite(what,item,detail){if(!db)return;const at=new Date().toISOString();const r={at,day:at.slice(0,10),by:myName(),what,item:String(item||"").slice(0,80)};if(detail)r.detail=String(detail).slice(0,300);
@@ -532,6 +532,9 @@ function openDriveTab(force){const box=$("driveTree");if(box.childElementCount&&
   const d=box.querySelector("details");fillFolder(FOLDER().root,d.querySelector("ul"));d.dataset.loaded="1";$("driveOpen").href="https://drive.google.com/drive/folders/"+FOLDER().root}
 $("driveTree").addEventListener("toggle",e=>{const d=e.target;if(!d.open||d.dataset.loaded)return;d.dataset.loaded="1";fillFolder(d.dataset.fid,d.querySelector("ul"))},true);
 $("driveReload").onclick=()=>openDriveTab(true);
+(function(){const b=$("userBtn"),m=$("userMenu");const set=o=>{m.hidden=!o;b.setAttribute("aria-expanded",String(o))};
+  b.onclick=e=>{e.stopPropagation();set(m.hidden)};document.addEventListener("click",e=>{if(!m.hidden&&!e.target.closest("#userWrap"))set(false)});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!m.hidden){set(false);b.focus()}})})();
 (function(){const t=$("appTitle"),d=$("infoDlg"),hov=matchMedia("(hover:hover) and (pointer:fine)");let ot,ct;
   const pop=()=>d.classList.contains("pop");
   const closeSoon=()=>{clearTimeout(ct);ct=setTimeout(()=>{if(pop())d.close()},350)};
@@ -593,7 +596,7 @@ new ResizeObserver(()=>sizeSig()).observe($("sigBox"));
   if(!window.claude||!claude.use){$("list").innerHTML='<p class="empty">De app kon niet starten. Ververs de pagina.</p>';return}
   [db,mcp,perms,downloads,user]=await Promise.all([claude.use("db"),claude.use("mcp"),claude.use("permissions"),claude.use("downloads"),claude.use("user").catch(()=>null)]);
   if(!db){$("list").innerHTML='<p class="empty">Log in met je Google-account om de werkbonnen te zien.</p>';$("sync").disabled=true;return}
-  $("signOut").hidden=false;if(!user)acct=null;else{try{const[me,wr]=await Promise.all([user.me(),user.can("data.write").catch(()=>null)]);acct={me,write:wr}}catch(e){acct=null}}
+  if(!user)acct=null;else{try{const[me,wr]=await Promise.all([user.me(),user.can("data.write").catch(()=>null)]);acct={me,write:wr}}catch(e){acct=null}}
   let setFirst;const setReady=new Promise(r=>setFirst=r);setTimeout(()=>setFirst(),4000);
   db.doc("instellingen/tarieven").onSnapshot(s=>{SET=Object.assign({},DEF_SET,s.exists?thaw(s.data()):{});applyRole();setFirst()},()=>{applyRole();setFirst()});
   await setReady;

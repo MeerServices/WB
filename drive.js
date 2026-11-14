@@ -285,6 +285,7 @@
     else if (n) el.textContent = n + (n === 1 ? " wijziging wacht" : " wijzigingen wachten") + (navigator.onLine === false || (lastErr && lastErr.code === "offline") ? " op internet" : " op Drive");
     else el.textContent = navigator.onLine === false ? "Offline" : "";
     el.hidden = !el.textContent;
+    const ub = $("userBtn"); if (ub) ub.classList.toggle("pending", !el.hidden);
   }
 
   /* ---------- wat app.js gebruikt ---------- */

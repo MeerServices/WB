@@ -235,3 +235,19 @@ dialog.info.pop{position:fixed;margin:0;z-index:60;max-height:calc(100dvh - 120p
 .langsw button{border:0;background:none;padding:3px 10px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;letter-spacing:.03em}
 .langsw button[aria-pressed="true"]{background:var(--accent);color:var(--bg)}
 .langsw button:hover:not([aria-pressed="true"]){color:var(--fg)}
+/* gebruiker rechtsboven (zoals BB) */
+#listView .top .ttl{flex:1 1 0;min-width:0}
+.user{position:relative;margin-left:auto;align-self:flex-start}
+.userbtn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--accent-soft);color:var(--fg);font:inherit;font-weight:600;font-size:13.5px;border-radius:99px;padding:6px 12px 6px 8px;cursor:pointer;max-width:180px;min-height:36px;position:relative}
+.userbtn .i{width:20px;height:20px;color:var(--accent)}
+.userbtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.userbtn:hover{border-color:var(--accent)}
+.userbtn.pending::after{content:"";position:absolute;top:2px;right:2px;width:9px;height:9px;border-radius:50%;background:var(--warn);border:2px solid var(--bg)}
+.umenu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;width:min(300px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.16);padding:12px;display:grid;gap:10px}
+.umenu .whoami{font-size:14px;color:var(--fg)}
+.uemail{font-size:12.5px;color:var(--muted);margin-top:-8px;overflow-wrap:anywhere}
+.umenu .net{font-size:12.5px}
+.urow{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px}
+.umenu #signOut{justify-content:center;width:100%}
+#listView .top>.row{flex-basis:100%}
+@media (max-width:440px){.userbtn span{display:none}.userbtn{padding:6px 8px}}
