@@ -5,6 +5,7 @@ const DRIVE="Google Drive";
 const FOLDER=()=>window.WBDrive.folders;
 const PARSE_V=2; // bump when parseBon learns new fields; older work orders are re-read from their stored PDF
 const $=id=>document.getElementById(id);
+const I=n=>'<svg class="i" aria-hidden="true"><use href="#i-'+n+'"/></svg>';
 // Snapshots from the store are frozen; work on a deep copy so edits can be made.
 const thaw=o=>o==null?o:JSON.parse(JSON.stringify(o));
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -239,7 +240,7 @@ window.addEventListener("pagehide",()=>{flush();logFlush(true)});
 /* ---------- Drive sync ---------- */
 async function syncDrive(){if(!canWrite())return;
   const msg=$("msg");if(!mcp){show(msg,driveErr({code:"not_granted"}),"warn");return}
-  const btn=$("sync");btn.disabled=true;btn.textContent="Ophalen…";show(msg,"");
+  const btn=$("sync").querySelector(".txt");$("sync").disabled=true;btn.textContent="Ophalen…";show(msg,"");
   try{
     const r=await mcp.callTool(DRIVE,"search_files",{query:"parentId = '"+FOLDER().open+"' and mimeType = 'application/pdf'",excludeContentSnippets:true,pageSize:100},{cache:false});
     const files=(r.payload&&r.payload.files)||[];
@@ -258,7 +259,7 @@ async function syncDrive(){if(!canWrite())return;
     // also retry uploads that are waiting
     for(const b of bonnen.filter(b=>b.status==="getekend"&&(!b.signedFileId||b.fotosInDrive===false)))await uploadSigned(b.id,true).catch(()=>{});
   }catch(e){show(msg,driveErr(e),e.code==="server_unavailable"?"warn":"bad")}
-  finally{btn.disabled=false;btn.textContent="Bonnen ophalen uit Drive"}
+  finally{$("sync").disabled=false;btn.textContent="Bonnen ophalen uit Drive"}
 }
 
 /* ---------- list ---------- */
@@ -294,7 +295,7 @@ function closeBon(){flush();logFlush(true);if(unsubBon)unsubBon();if(unsubPh)uns
 function fillBon(){
   if(!cur)return;const v=cur.velden||{},inv=cur.invoer||{};const signed=cur.status==="getekend";
   $("bNr").textContent=v.nr||"";$("bSub").textContent=[v.klant,v.plandatum].filter(Boolean).join(" · ");
-  const tr=pdfTarief(v)!=null?v.tarief:(()=>{const K=signed&&cur.kosten?cur.kosten:kostCalc(cur);return K.rows[0].rate?eur(K.rows[0].rate)+" (uit tarieventabel)":"leeg, vul tarieven in via ⋯"})();
+  const tr=pdfTarief(v)!=null?v.tarief:(()=>{const K=signed&&cur.kosten?cur.kosten:kostCalc(cur);return K.rows[0].rate?eur(K.rows[0].rate)+" (uit tarieventabel)":"leeg, vul tarieven in via het tandwiel"})();
   const f=[["Debiteurnr.",v.debnr],["Tarief ex. btw",tr],["Klant",[v.klant,v.contact].filter(Boolean).join(", ")],["Bezoekadres",v.bezoekadres],["Telefoon",v.telefoon],["Opdracht",v.opdracht],["Reden",v.reden],["Afgesproken met",v.afgesproken],["Medewerker",v.medewerker],["Servicecontract",v.contractnr],["Objectnr.",v.objectnr],["Projectnr.",v.projectnr],["Gepland",[v.plandatum,v.plantijd&&v.plantijd!=="0:00"?v.plantijd:""].filter(Boolean).join(" om ")]].filter(x=>x[1]);
   $("facts").innerHTML=f.map(x=>'<div class="fact"><span>'+x[0]+'</span><b>'+esc(x[1])+'</b></div>').join("");
   $("oConst").textContent=v.constatering||"";$("oOpl").textContent=v.oplossing||"";
@@ -332,13 +333,13 @@ function renderRoute(){const v=(cur&&cur.velden)||{},inv=(cur&&cur.invoer)||{};c
 function renderTasks(){const t=((cur&&cur.invoer)||{}).taken||[];const signed=!cur||cur.status==="getekend"||!canWrite();
   const ins=[...$("tasks").querySelectorAll("[data-ti]")];
   if(!signed&&ins.length===t.length&&ins.length&&$("tasks").contains(document.activeElement)){ins.forEach((el,i)=>{if(el!==document.activeElement&&el.value!==t[i].t)el.value=t[i].t});return}
-  $("tasks").innerHTML=t.length?t.map((x,i)=>'<li>'+(signed?'<span>'+esc(x.t)+'</span>':'<input class="tin2" data-ti="'+i+'" value="'+esc(x.t)+'" maxlength="200" aria-label="Taak '+(i+1)+'"><button type="button" data-del="'+i+'" aria-label="Taak verwijderen">×</button>')+'</li>').join(""):'<li class="muted" style="border:0">Geen taken.</li>';$("taskForm").hidden=signed}
+  $("tasks").innerHTML=t.length?t.map((x,i)=>'<li>'+(signed?'<span>'+esc(x.t)+'</span>':'<input class="tin2" data-ti="'+i+'" value="'+esc(x.t)+'" maxlength="200" aria-label="Taak '+(i+1)+'"><button type="button" data-del="'+i+'" aria-label="Taak verwijderen">'+I("trash")+'</button>')+'</li>').join(""):'<li class="muted" style="border:0">Geen taken.</li>';$("taskForm").hidden=signed}
 let phKey="";
 function renderPhotos(){const signed=!cur||cur.status==="getekend"||!canWrite();
   const key=photos.map(p=>p.id).join(",")+"|"+signed+"|"+phBusy;
   if(key===phKey&&$("photos").childElementCount){document.querySelectorAll("[data-phbij]").forEach(i=>{const p=photos.find(x=>x.id===i.dataset.phbij);const v=captions[i.dataset.phbij]??(p&&p.bij)??"";if(document.activeElement!==i&&i.value!==v)i.value=v});return}
   phKey=key;
-  $("photos").innerHTML=photos.map(p=>'<div class="ph"><div class="im"><img src="'+p.d+'" alt="'+esc(p.bij||"Foto")+'">'+(signed?"":'<button class="x" type="button" data-phdel="'+esc(p.id)+'" aria-label="Foto verwijderen">×</button>')+'</div><input data-phbij="'+esc(p.id)+'" value="'+esc(captions[p.id]??p.bij??"")+'" placeholder="Omschrijving" maxlength="120" '+(signed?"disabled":"")+'></div>').join("")+(signed?"":phBusy?'<div class="addph busy"><span class="spin"></span>'+esc(phBusy)+'</div>':'<div class="addbtns"><label class="addph"><span style="font-size:22px">+</span>Foto maken<input type="file" id="phCam" accept="image/*" capture="environment" hidden></label><label class="addph alt">Kies uit galerij<input type="file" id="phIn" accept="image/*" multiple hidden></label></div>');
+  $("photos").innerHTML=photos.map(p=>'<div class="ph"><div class="im"><img src="'+p.d+'" alt="'+esc(p.bij||"Foto")+'">'+(signed?"":'<button class="x" type="button" data-phdel="'+esc(p.id)+'" aria-label="Foto verwijderen">'+I("x")+'</button>')+'</div><input data-phbij="'+esc(p.id)+'" value="'+esc(captions[p.id]??p.bij??"")+'" placeholder="Omschrijving" maxlength="120" '+(signed?"disabled":"")+'></div>').join("")+(signed?"":phBusy?'<div class="addph busy"><span class="spin"></span>'+esc(phBusy)+'</div>':'<div class="addbtns"><label class="addph">'+I("camera")+'Foto maken<input type="file" id="phCam" accept="image/*" capture="environment" hidden></label><label class="addph alt">'+I("image")+'Kies uit galerij<input type="file" id="phIn" accept="image/*" multiple hidden></label></div>');
   $("phCount").textContent=photos.length?photos.length+" "+(photos.length===1?"foto":"foto's")+", komen als bijlage in de PDF":"Komen als bijlage in de PDF";
   ["phIn","phCam"].forEach(id=>{const inp=$(id);if(inp)inp.onchange=e=>{const f=[...e.target.files];e.target.value="";if(f.length)addPhotos(f)}});}
 // Phone photos are large (12+ MP): decode once, scale to 1280 px, then only lower the JPEG quality until it fits one stored document.
@@ -522,21 +523,22 @@ async function listFolder(id){const r=await mcp.callTool(DRIVE,"search_files",{q
 function fileNote(f){const b=bonnen.find(x=>x.id===f.id||x.signedFileId===f.id);if(!b)return "";const st=b.signedFileId===f.id?"getekende bon":b.status==="getekend"?"in app: getekend":"in app: open";return '<span class="pill '+(b.status==="getekend"?"done":"new")+'">'+st+'</span>'}
 async function fillFolder(id,ul){ul.innerHTML='<li class="busyline"><span class="spin"></span>Laden…</li>';
   try{const files=await listFolder(id);
-    ul.innerHTML=files.length?files.map(f=>isFolder(f)?'<li><details data-fid="'+esc(f.id)+'"><summary>📁 '+esc(f.title||"map")+'</summary><ul class="tree"></ul></details></li>':'<li class="f">📄 <a target="_blank" rel="noopener" href="'+esc(f.viewUrl||("https://drive.google.com/file/d/"+f.id+"/view"))+'">'+esc(f.title||f.id)+'</a>'+fileNote(f)+'</li>').join(""):'<li class="f muted">Lege map</li>';
+    ul.innerHTML=files.length?files.map(f=>isFolder(f)?'<li><details data-fid="'+esc(f.id)+'"><summary>'+I("folder")+esc(f.title||"map")+'</summary><ul class="tree"></ul></details></li>':'<li class="f">'+I("file")+'<a target="_blank" rel="noopener" href="'+esc(f.viewUrl||("https://drive.google.com/file/d/"+f.id+"/view"))+'">'+esc(f.title||f.id)+'</a>'+fileNote(f)+'</li>').join(""):'<li class="f muted">Lege map</li>';
     const sum=ul.parentElement&&ul.parentElement.querySelector(":scope>summary");if(sum){let c=sum.querySelector(".cnt");if(!c){c=document.createElement("span");c.className="cnt";sum.append(" ",c)}c.textContent="("+files.length+")"}}
   catch(e){ul.innerHTML='<li class="f">'+driveErr(e)+'</li>'}}
 function openDriveTab(force){const box=$("driveTree");if(box.childElementCount&&!force)return;
   if(!mcp){box.innerHTML='<p class="muted">'+driveErr({code:"not_granted"})+'</p>';return}
-  box.innerHTML='<ul class="tree"><li><details open data-fid="'+FOLDER().root+'"><summary>📁 Werkbonnen</summary><ul class="tree"></ul></details></li></ul>';
+  box.innerHTML='<ul class="tree"><li><details open data-fid="'+FOLDER().root+'"><summary>'+I("folder")+'Werkbonnen</summary><ul class="tree"></ul></details></li></ul>';
   const d=box.querySelector("details");fillFolder(FOLDER().root,d.querySelector("ul"));d.dataset.loaded="1";$("driveOpen").href="https://drive.google.com/drive/folders/"+FOLDER().root}
 $("driveTree").addEventListener("toggle",e=>{const d=e.target;if(!d.open||d.dataset.loaded)return;d.dataset.loaded="1";fillFolder(d.dataset.fid,d.querySelector("ul"))},true);
 $("driveReload").onclick=()=>openDriveTab(true);
+$("appTitle").onclick=()=>$("infoDlg").showModal();
 $("signOut").onclick=()=>askSure("Uitloggen op dit apparaat? Wat nog niet in Drive staat blijft hier bewaard tot je weer inlogt.").then(ok=>{if(ok)window.WBDrive.signOut()});
 /* ---------- settings (⋯, admin only) ---------- */
 function setTab(t){document.querySelectorAll("[data-st]").forEach(b=>b.setAttribute("aria-selected",b.dataset.st===t?"true":"false"));document.querySelectorAll("[data-sp]").forEach(p=>p.hidden=p.dataset.sp!==t);show($("setMsg"),"");
   if(t==="drive")openDriveTab();if(t==="log")openLogTab()}
 document.querySelectorAll("[data-st]").forEach(b=>b.onclick=()=>setTab(b.dataset.st));
-function mwRow(m){return '<div class="mw" data-mwid="'+esc(m.id||"")+'"><span class="grip" tabindex="0" role="button" aria-label="Verslepen (of pijltjes omhoog en omlaag)" title="Sleep om de volgorde te veranderen">⠿</span><input class="inp" data-mwn value="'+esc(m.naam||"")+'" placeholder="Naam" aria-label="Naam medewerker" maxlength="80"><input class="inp" data-mwl value="'+esc(m.login||"")+'" placeholder="naam@bedrijf.nl" aria-label="E-mail (Google)" type="email" autocomplete="off" maxlength="80"><select class="inp" data-mwr aria-label="Rechten">'+ROLES.map(r=>'<option value="'+r[0]+'"'+((m.rol||"gebruiker")===r[0]?" selected":"")+'>'+r[1]+'</option>').join("")+'</select><input class="inp mono" data-mwt value="'+esc(m.uurtarief||"")+'" inputmode="decimal" placeholder="standaard" aria-label="Uurtarief"><button type="button" data-mwdel aria-label="Medewerker verwijderen">×</button></div>'}
+function mwRow(m){return '<div class="mw" data-mwid="'+esc(m.id||"")+'"><span class="grip" tabindex="0" role="button" aria-label="Verslepen (of pijltjes omhoog en omlaag)" title="Sleep om de volgorde te veranderen">'+I("grip")+'</span><input class="inp" data-mwn value="'+esc(m.naam||"")+'" placeholder="Naam" aria-label="Naam medewerker" maxlength="80"><input class="inp" data-mwl value="'+esc(m.login||"")+'" placeholder="naam@bedrijf.nl" aria-label="E-mail (Google)" type="email" autocomplete="off" maxlength="80"><select class="inp" data-mwr aria-label="Rechten">'+ROLES.map(r=>'<option value="'+r[0]+'"'+((m.rol||"gebruiker")===r[0]?" selected":"")+'>'+r[1]+'</option>').join("")+'</select><input class="inp mono" data-mwt value="'+esc(m.uurtarief||"")+'" inputmode="decimal" placeholder="standaard" aria-label="Uurtarief"><button type="button" data-mwdel aria-label="Medewerker verwijderen">'+I("trash")+'</button></div>'}
 function openSet(){if(!isAdmin())return;const S=SET;$("s_uur").value=S.uurtarief||"";$("s_reis").value=S.reisTarief||"";$("s_km").value=S.kmTarief||"";$("s_btw").value=S.btw??"21";$("s_rnd").value=S.afronden||"0";$("s_min").checked=S.minUur!==false;
   $("s_mws").innerHTML=(S.medewerkers||[]).map(mwRow).join("");setTab("tar");
   if(!$("setDlg").open)$("setDlg").showModal()}

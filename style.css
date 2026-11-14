@@ -199,3 +199,33 @@ dialog.set .mw button{border:1px solid var(--line);background:var(--surface);bor
 .acct{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12.5px}
 .net{color:var(--warn);font-weight:500}
 .linkbtn{background:none;border:0;padding:0;color:var(--muted);text-decoration:underline;cursor:pointer;font-size:12.5px}
+
+/* ---------- iconen (lijn-iconen, v1.1) ---------- */
+.i{width:18px;height:18px;flex:none;display:inline-block;vertical-align:middle}
+.btn .i{margin-left:-2px}
+.btn.dots{padding:6px 10px;min-width:44px;justify-content:center}.btn.dots .i{width:20px;height:20px;margin:0}
+.tabs .ic,.stabs .ic{display:inline-flex}.tabs .ic .i,.stabs .ic .i{width:24px;height:24px}
+[data-now]{display:inline-flex;align-items:center;gap:4px}[data-now] .i{width:15px;height:15px}
+[data-kr]{display:inline-flex;align-items:center;justify-content:center}[data-kr] .i{width:16px;height:16px}
+.addph .i{width:28px;height:28px}.addbtns .addph.alt{flex-direction:row}.addbtns .addph.alt .i{width:18px;height:18px}
+.ph .x{display:grid;place-items:center;padding:0}.ph .x .i{width:16px;height:16px}
+.tasks li button{display:inline-grid;place-items:center;padding:4px 6px}.tasks li button .i{width:17px;height:17px}
+dialog.set .mw button{display:grid;place-items:center}dialog.set .mw button .i{width:17px;height:17px}
+.grip .i{width:16px;height:16px}
+.lb button{display:inline-flex;align-items:center;justify-content:center}.lb button .i{width:20px;height:20px}
+.tree summary .i,.tree .f .i{width:16px;height:16px;margin-right:6px;vertical-align:-3px;color:var(--muted)}
+.linkbtn{display:inline-flex;align-items:center;gap:4px}.linkbtn .i{width:14px;height:14px}
+/* titel met versie en uitleg */
+.titlebtn{all:unset;cursor:pointer;display:inline-flex;align-items:baseline;flex-wrap:wrap;gap:0 8px;font:inherit;color:inherit;border-radius:8px}
+.titlebtn:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.titlebtn .ver{font-family:var(--f-mono);font-size:.42em;font-weight:500;color:var(--accent);align-self:center}
+.titlebtn .copy{font-family:var(--f-body);font-size:.36em;font-weight:500;color:var(--muted);align-self:center}
+.titlebtn>.i{width:20px;height:20px;color:var(--muted);align-self:center;transition:color .15s}
+.titlebtn:hover>.i,.titlebtn:focus-visible>.i{color:var(--accent)}
+.titlebtn:hover .copy{color:var(--fg)}
+dialog.info{width:min(640px,calc(100vw - 24px))}
+dialog.info h2 .ver{font-family:var(--f-mono);font-size:.6em;color:var(--accent);font-weight:500}
+.help p{margin:4px 0 0;line-height:1.5}
+.help h3{display:flex;align-items:center;gap:8px;font-size:16px;margin:18px 0 0}
+.help h3 .i{width:20px;height:20px;color:var(--accent)}
+.help p .i{width:15px;height:15px;vertical-align:-2px}
