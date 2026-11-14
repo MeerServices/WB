@@ -272,7 +272,7 @@ function renderList(){
   rows.sort((a,b)=>filter==="open"?String((a.velden||{}).nr).localeCompare(String((b.velden||{}).nr),"nl",{numeric:true}):(b.getekendTs||0)-(a.getekendTs||0));
   const L=$("list");
   if(!rows.length){L.innerHTML='<p class="empty">'+(q?"Geen bonnen gevonden voor deze zoekopdracht.":filter==="open"?"Geen open bonnen. Zet een PDF uit MSWMenuX in de map Werkbonnen/Open en kies Bonnen ophalen uit Drive.":"Nog geen getekende bonnen.")+"</p>";return}
-  L.innerHTML=rows.map(b=>{const v=b.velden||{};const[c,t]=statusOf(b);return '<button class="card" data-id="'+esc(b.id)+'"><span class="no">'+esc(v.nr||"?")+'</span><span class="k">'+esc(v.klant||b.bestand||"Onbekende klant")+'</span><span class="pill '+c+'">'+t+'</span><span class="d">'+esc([v.opdracht,v.bezoekadres].filter(Boolean).join(" · "))+'<br>'+esc([v.medewerker,v.plandatum,b.getekendOp&&("getekend "+b.getekendOp)].filter(Boolean).join(" · "))+'</span></button>'}).join("");
+  L.innerHTML=rows.map(b=>{const v=b.velden||{};const[c,t]=statusOf(b);return '<button class="card" data-id="'+esc(b.id)+'"><span class="no" data-no-i18n>'+esc(v.nr||"?")+'</span><span class="k" data-no-i18n>'+esc(v.klant||b.bestand||"Onbekende klant")+'</span><span class="pill '+c+'">'+t+'</span><span class="d">'+esc([v.opdracht,v.bezoekadres].filter(Boolean).join(" · "))+'<br>'+esc([v.medewerker,v.plandatum,b.getekendOp&&("getekend "+b.getekendOp)].filter(Boolean).join(" · "))+'</span></button>'}).join("");
 }
 
 /* ---------- detail ---------- */
@@ -297,7 +297,7 @@ function fillBon(){
   $("bNr").textContent=v.nr||"";$("bSub").textContent=[v.klant,v.plandatum].filter(Boolean).join(" · ");
   const tr=pdfTarief(v)!=null?v.tarief:(()=>{const K=signed&&cur.kosten?cur.kosten:kostCalc(cur);return K.rows[0].rate?eur(K.rows[0].rate)+" (uit tarieventabel)":"leeg, vul tarieven in via het tandwiel"})();
   const f=[["Debiteurnr.",v.debnr],["Tarief ex. btw",tr],["Klant",[v.klant,v.contact].filter(Boolean).join(", ")],["Bezoekadres",v.bezoekadres],["Telefoon",v.telefoon],["Opdracht",v.opdracht],["Reden",v.reden],["Afgesproken met",v.afgesproken],["Medewerker",v.medewerker],["Servicecontract",v.contractnr],["Objectnr.",v.objectnr],["Projectnr.",v.projectnr],["Gepland",[v.plandatum,v.plantijd&&v.plantijd!=="0:00"?v.plantijd:""].filter(Boolean).join(" om ")]].filter(x=>x[1]);
-  $("facts").innerHTML=f.map(x=>'<div class="fact"><span>'+x[0]+'</span><b>'+esc(x[1])+'</b></div>').join("");
+  $("facts").innerHTML=f.map(x=>'<div class="fact"><span>'+x[0]+'</span><b data-no-i18n>'+esc(x[1])+'</b></div>').join("");
   $("oConst").textContent=v.constatering||"";$("oOpl").textContent=v.oplossing||"";
   document.querySelectorAll("[data-k]").forEach(el=>{const k=el.dataset.k;const val=k==="klantNaam"?(cur.klantNaam||""):(inv[k]||"");if(document.activeElement!==el&&el.value!==val)el.value=val});
   $("edit").disabled=signed||!canWrite();

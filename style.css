@@ -230,3 +230,8 @@ dialog.info h2 .ver{font-family:var(--f-mono);font-size:.6em;color:var(--accent)
 .help h3 .i{width:20px;height:20px;color:var(--accent)}
 .help p .i{width:15px;height:15px;vertical-align:-2px}
 dialog.info.pop{position:fixed;margin:0;z-index:60;max-height:calc(100dvh - 120px);overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.18)}
+/* taalkeuze NL / US */
+.langsw{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--surface)}
+.langsw button{border:0;background:none;padding:3px 10px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;letter-spacing:.03em}
+.langsw button[aria-pressed="true"]{background:var(--accent);color:var(--bg)}
+.langsw button:hover:not([aria-pressed="true"]){color:var(--fg)}
