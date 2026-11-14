@@ -19,6 +19,11 @@ function bytesToB64(u){let s="";for(let i=0;i<u.length;i+=0x8000)s+=String.fromC
 function mins(t){if(!t||!/^\d{1,2}:\d{2}$/.test(t))return null;const[h,m]=t.split(":").map(Number);return h*60+m}
 function dur(a,b){const x=mins(a),y=mins(b);if(x==null||y==null)return 0;let d=y-x;if(d<0)d+=1440;return d}
 const num=v=>{const n=parseFloat(String(v||"").replace(",","."));return isFinite(n)&&n>0?n:0};
+const isRemote=v=>(v||{}).soort==="remote",isProj=v=>(v||{}).type==="project";
+// time totals (minutes) for a bon: remote has no travel, a projectbon adds up its days
+function tsum(v){v=v||{};const p=dur(v.voorbVan,v.voorbTot),R=isRemote(v);let h=0,w=0,t=0,km=0;
+  (isProj(v)?(v.regels||[]):[v]).forEach(r=>{w+=dur(r.werkVan,r.werkTot);if(!R){h+=dur(r.heenVan,r.heenTot);t+=dur(r.terugVan,r.terugTot);km+=kmTotal(r)}});
+  return {p,h,w,t,km:Math.round(km*10)/10}}
 function kmTotal(v){v=v||{};const h=num(v.kmHeen);const t=String(v.kmTerug||"").trim()===""?h:num(v.kmTerug);return Math.round((h+t)*10)/10}
 const kmStr=n=>String(n).replace(".",",");
 const hm=m=>Math.floor(m/60)+":"+String(m%60).padStart(2,"0");
@@ -38,7 +43,7 @@ function pdfTarief(v){const n=pnum(String((v&&v.tarief)||"").replace(/[^\d.,]/g,
 function kostCalc(bon){
   const v=bon.invoer||{},o=v.kosten||{},S=SET;
   const rnd=+S.afronden||0,up=m=>rnd?Math.ceil(m/rnd)*rnd:m;
-  const wm=dur(v.werkVan,v.werkTot)+dur(v.voorbVan,v.voorbTot),rm=dur(v.heenVan,v.heenTot)+dur(v.terugVan,v.terugTot);
+  const TS=tsum(v),wm=TS.w+TS.p,rm=TS.h+TS.t;
   let wAuto=wm?up(wm)/60:0;if(wm&&S.minUur!==false)wAuto=Math.max(1,wAuto);
   const rAuto=rm?up(rm)/60:0;
   const mwName=o.medewerker!=null&&o.medewerker!==""?(o.medewerker==="-"?"":o.medewerker):mwMatch((bon.velden||{}).medewerker);
@@ -50,14 +55,14 @@ function kostCalc(bon){
   const rows=[
     {k:"werk",label:"Werkuren",qty:val("werkUren",wAuto),rate:val("uurtarief",uurAuto),o:isO("werkUren")||isO("uurtarief"),unit:"uur"},
     {k:"reis",label:"Reistijd",qty:val("reisUren",rAuto),rate:val("reisTarief",reisAuto),o:isO("reisUren")||isO("reisTarief"),unit:"uur"},
-    {k:"km",label:"Kilometers",qty:val("km",kmTotal(v)),rate:val("kmTarief",kmAuto),o:isO("km")||isO("kmTarief"),unit:"km"}];
+    {k:"km",label:"Kilometers",qty:val("km",TS.km),rate:val("kmTarief",kmAuto),o:isO("km")||isO("kmTarief"),unit:"km"}];
   rows.forEach(r=>r.amt=r2(r.qty*r.rate));
   const overig=pnum(o.overig)||0;
   const sub=r2(rows.reduce((a,r)=>a+r.amt,0)+overig);
   const kt=o.kortingType==="€"?"€":"%",kv=pnum(o.korting)||0;
   const korting=Math.min(sub,r2(kt==="%"?sub*Math.min(kv,100)/100:kv));
   const ex=r2(sub-korting),btwPct=pnum(S.btw)??21,btw=r2(ex*btwPct/100);
-  return {rows,overig,overigOms:o.overigOms||"",sub,kortingType:kt,kortingWaarde:kv,korting,ex,btwPct,btw,incl:r2(ex+btw),medewerker:mwName,auto:{werkUren:wAuto,uurtarief:uurAuto,reisUren:rAuto,reisTarief:reisAuto,km:kmTotal(v),kmTarief:kmAuto}};
+  return {rows,overig,overigOms:o.overigOms||"",sub,kortingType:kt,kortingWaarde:kv,korting,ex,btwPct,btw,incl:r2(ex+btw),medewerker:mwName,auto:{werkUren:wAuto,uurtarief:uurAuto,reisUren:rAuto,reisTarief:reisAuto,km:TS.km,kmTarief:kmAuto}};
 }
 function show(el,html,kind){el.hidden=!html;el.className="note"+(kind?" "+kind:"");el.innerHTML=html||""}
 function driveErr(e){
@@ -142,19 +147,22 @@ async function buildPdf(bon,origBytes,phs,opts){
   // right column times
   const col=it.filter(i=>i.x>440&&i.x<500);
   const reis=find("Reisuren:"),werk=find("Werkuren:");
-  const cx=505,cx1=W-24;
+  const cx=505,cx1=W-24;const TS=tsum(v),PJ=isProj(v),RM=isRemote(v);
   if(reis){const lab=col.filter(i=>i.y<reis.y&&(!werk||i.y>werk.y)).sort((a,b)=>b.y-a.y);
     const vans=lab.filter(i=>i.s==="Van:"),tots=lab.filter(i=>i.s==="Tot:"),tot=lab.find(i=>i.s==="Totaal:");
-    if(vans[0])put(cx+7,vans[0].y,v.heenVan,{cover:[cx,cx1]});if(tots[0])put(cx+7,tots[0].y,v.heenTot,{cover:[cx,cx1]});
-    if(vans[1])put(cx+7,vans[1].y,v.terugVan,{cover:[cx,cx1]});if(tots[1])put(cx+7,tots[1].y,v.terugTot,{cover:[cx,cx1]});
-    const r=dur(v.heenVan,v.heenTot)+dur(v.terugVan,v.terugTot);if(tot&&r)put(cx+7,tot.y,dec(r),{cover:[cx,cx1],bold:true});}
+    if(!PJ&&!RM){if(vans[0])put(cx+7,vans[0].y,v.heenVan,{cover:[cx,cx1]});if(tots[0])put(cx+7,tots[0].y,v.heenTot,{cover:[cx,cx1]});
+    if(vans[1])put(cx+7,vans[1].y,v.terugVan,{cover:[cx,cx1]});if(tots[1])put(cx+7,tots[1].y,v.terugTot,{cover:[cx,cx1]});}
+    if(RM&&vans[0])put(cx+7,vans[0].y,"Remote",{cover:[cx,cx1]});
+    const r=TS.h+TS.t;if(tot&&r)put(cx+7,tot.y,dec(r),{cover:[cx,cx1],bold:true});}
   if(werk){const lab=col.filter(i=>i.y<werk.y&&i.y>werk.y-60).sort((a,b)=>b.y-a.y);
     const van=lab.find(i=>i.s==="Van:"),totl=lab.find(i=>i.s==="Tot:"),tot=lab.find(i=>i.s==="Totaal:");
-    if(van&&v.werkVan)put(cx+7,van.y,v.werkVan,{cover:[cx,cx1]});if(totl)put(cx+7,totl.y,v.werkTot,{cover:[cx,cx1]});
-    const w=dur(v.werkVan,v.werkTot);if(tot&&w)put(cx+7,tot.y,dec(w),{cover:[cx,cx1],bold:true});}
+    if(PJ){if(van)put(cx+7,van.y,"Project, zie bijlage",{cover:[cx,cx1]});else if(totl)put(cx+7,totl.y,"",{cover:[cx,cx1]});}
+    else{if(van&&v.werkVan)put(cx+7,van.y,v.werkVan,{cover:[cx,cx1]});if(totl)put(cx+7,totl.y,v.werkTot,{cover:[cx,cx1]});}
+    const w=TS.w;if(tot&&w)put(cx+7,tot.y,dec(w),{cover:[cx,cx1],bold:true});}
   const vb=find("Voorbereidingsuren:"),pm=dur(v.voorbVan,v.voorbTot);
   if(vb&&pm){const tot=col.find(i=>i.s==="Totaal:"&&i.y<vb.y&&i.y>vb.y-25);if(tot)put(cx+7,tot.y,dec(pm),{cover:[cx,cx1],bold:true});const dl=col.find(i=>i.s==="Data:"&&i.y<vb.y&&i.y>vb.y-40);if(dl)put(cx+7,dl.y,v.voorbVan+" - "+v.voorbTot,{cover:[cx,cx1]})}
-  const kmL=find("KM:");const km=kmTotal(v);
+  if(PJ&&(v.regels||[]).length)extra.push({title:"Projecttijden"+(RM?" (remote)":""),list:(v.regels||[]).map((r,i)=>regelText(r,i,RM))});
+  const kmL=find("KM:");const km=TS.km;
   if(kmL&&km)put(kmL.x+kmL.w+8,kmL.y,kmStr(km),{cover:[kmL.x+kmL.w+4,cx1],bg:rgb(1,1,1),bold:true});
   // texts
   const con=find("Constatering:"),opl=find("Oplossing:"),nog=find("Nog in te plannen taken:"),gel=find("Gel. of ing. goederen:"),onk=find("Onkosten:");
@@ -271,13 +279,13 @@ async function syncDrive(){if(!canWrite())return;
 }
 
 /* ---------- list ---------- */
-function statusOf(b){if(b.status==="getekend")return b.signedFileId&&b.fotosInDrive!==false?["done","In Drive"]:["signed","Wacht op upload"];const v=b.invoer||{};const busy=["voorbVan","heenVan","werkVan","werkTot","constAanv","oplAanv"].some(k=>v[k]&&!(k==="werkVan"&&v[k]===(b.velden||{}).werkVanPreset))||(b.fotos>0)||(v.taken||[]).length;return busy?["busy","Bezig"]:["new","Nieuw"]}
+function statusOf(b){if(b.status==="getekend")return b.signedFileId&&b.fotosInDrive!==false?["done","In Drive"]:["signed","Wacht op upload"];const v=b.invoer||{};const busy=["voorbVan","heenVan","werkVan","werkTot","constAanv","oplAanv"].some(k=>v[k]&&!(k==="werkVan"&&v[k]===(b.velden||{}).werkVanPreset))||(b.fotos>0)||(v.taken||[]).length||(v.regels||[]).length;return busy?["busy","Bezig"]:["new","Nieuw"]}
 function renderList(){
   const q=$("q").value.trim().toLowerCase();
   const open=bonnen.filter(b=>b.status!=="getekend"),signed=bonnen.filter(b=>b.status==="getekend");
   $("cOpen").textContent=open.length;$("cSigned").textContent=signed.length;
   let rows=(filter==="open"?open:signed).filter(b=>{if(!q)return true;const v=b.velden||{};return [v.nr,v.klant,v.medewerker,v.opdracht,v.bezoekadres].join(" ").toLowerCase().includes(q)});
-  rows.sort((a,b)=>filter==="open"?String((a.velden||{}).nr).localeCompare(String((b.velden||{}).nr),"nl",{numeric:true}):(b.getekendTs||0)-(a.getekendTs||0));
+  rows.sort((a,b)=>filter==="open"?(String((b.velden||{}).nr).localeCompare(String((a.velden||{}).nr),"nl",{numeric:true})||(b.geimporteerd||0)-(a.geimporteerd||0)):(b.getekendTs||0)-(a.getekendTs||0));
   const L=$("list");
   if(!rows.length){L.innerHTML='<p class="empty">'+(q?"Geen bonnen gevonden voor deze zoekopdracht.":filter==="open"?"Geen open bonnen. Zet een PDF uit MSWMenuX in de map Werkbonnen/Open en kies Bonnen ophalen uit Drive.":"Nog geen getekende bonnen.")+"</p>";return}
   L.innerHTML=rows.map(b=>{const v=b.velden||{};const[c,t]=statusOf(b);return '<button class="card" data-id="'+esc(b.id)+'"><span class="no" data-no-i18n>'+esc(v.nr||"?")+'</span><span class="k" data-no-i18n>'+esc(v.klant||b.bestand||"Onbekende klant")+'</span><span class="pill '+c+'">'+t+'</span><span class="d">'+esc([v.opdracht,v.bezoekadres].filter(Boolean).join(" · "))+'<br>'+esc([v.medewerker,v.plandatum,b.getekendOp&&("getekend "+b.getekendOp)].filter(Boolean).join(" · "))+'</span></button>'}).join("");
@@ -309,15 +317,34 @@ function fillBon(){
   $("oConst").textContent=v.constatering||"";$("oOpl").textContent=v.oplossing||"";
   document.querySelectorAll("[data-k]").forEach(el=>{const k=el.dataset.k;const val=k==="klantNaam"?(cur.klantNaam||""):(inv[k]||"");if(document.activeElement!==el&&el.value!==val)el.value=val});
   $("edit").disabled=signed||!canWrite();
-  renderTimes();renderTasks();renderRoute();renderPhotos();
+  renderRegels();renderTimes();renderTasks();renderRoute();renderPhotos();
   $("signDate").textContent=cur.getekendOp||today();
   $("signOpen").hidden=signed||!canWrite();$("signDone").hidden=!signed;$("roNote").hidden=signed||canWrite();$("reopenBtn").hidden=!isAdmin();
   if(signed){$("sigImg").src=cur.handtekening||"";$("signWho").textContent=(cur.klantNaam||"").toUpperCase();$("signWhen").textContent="Getekend op "+(cur.getekendOp||"");
     const up=!!cur.signedFileId&&cur.fotosInDrive!==false;$("driveState").innerHTML=up?'<span class="pill done">Opgeslagen in Werkbonnen/Getekend</span>':'<span class="pill signed">Nog niet in Google Drive</span>';
     $("uploadBtn").hidden=up;$("driveLink").hidden=!(up&&cur.signedUrl);if(cur.signedUrl)$("driveLink").href=cur.signedUrl;$("saveBtn").hidden=!downloads;}
 }
-function renderTimes(){const v=(cur&&cur.invoer)||{};$("kmTot").textContent=kmStr(kmTotal(v))+" km";const h=dur(v.heenVan,v.heenTot),p=dur(v.voorbVan,v.voorbTot),w=dur(v.werkVan,v.werkTot)+p,t=dur(v.terugVan,v.terugTot);
-  $("tot_p").textContent=p?hm(p):"";$("tot_h").textContent=h?hm(h):"";$("tot_w").textContent=w-p?hm(w-p):"";$("tot_t").textContent=t?hm(t):"";
+const dmy=d=>{const m=/^(\d{4})-(\d\d)-(\d\d)$/.exec(d||"");return m?m[3]+"-"+m[2]+"-"+m[1]:(d||"")};
+function regelText(r,i,RM){const w=dur(r.werkVan,r.werkTot),rs=RM?0:dur(r.heenVan,r.heenTot)+dur(r.terugVan,r.terugTot),km=RM?0:kmTotal(r);
+  return "Dag "+(i+1)+(r.datum?" ("+dmy(r.datum)+")":"")+": "+(r.werkVan||r.werkTot?(r.werkVan||"?")+" - "+(r.werkTot||"?")+", ":"")+"werk "+hm(w)+(rs?", reis "+hm(rs):"")+(km?", "+kmStr(km)+" km":"")}
+function regelSum(r,i){const RM=isRemote(cur&&cur.invoer);const w=dur(r.werkVan,r.werkTot),rs=RM?0:dur(r.heenVan,r.heenTot)+dur(r.terugVan,r.terugTot),km=RM?0:kmTotal(r);
+  return '<b>Dag '+(i+1)+'</b>'+(r.datum?'<span>'+esc(dmy(r.datum))+'</span>':'')+(r.werkVan||r.werkTot?'<span class="mono">'+esc((r.werkVan||"?")+"–"+(r.werkTot||"?"))+'</span>':'')+'<span class="mono">werk '+hm(w)+'</span>'+(rs?'<span class="mono">reis '+hm(rs)+'</span>':'')+(km?'<span class="mono">'+kmStr(km)+' km</span>':'')}
+const RF=[["heenVan","heenTot","Heenreis","reisuren",1],["werkVan","werkTot","Op locatie","aankomst en vertrek",0],["terugVan","terugTot","Terugreis","reisuren",1]];
+let openRegel=-1;
+function renderRegels(){const box=$("regels");if(!box||!cur)return;const v=cur.invoer||{},L=v.regels||[];const ro=cur.status==="getekend"||!canWrite();
+  box.innerHTML=L.length?L.map((r,i)=>'<details class="regel" data-ri="'+i+'"'+(i===openRegel?" open":"")+'><summary><span class="rs">'+regelSum(r,i)+'</span>'+I("chev")+'</summary><div class="rbody">'
+    +'<div class="fld"><label class="lbl" for="r'+i+'_datum">Datum</label><input class="inp" type="date" id="r'+i+'_datum" data-rk="datum" value="'+esc(r.datum||"")+'"></div>'
+    +RF.map(f=>'<div class="trow'+(f[4]?" reis":"")+'"><div class="nm">'+(f[1]==="werkTot"?'<span class="only-loc">Op locatie<small>aankomst en vertrek</small></span><span class="only-rem">Werktijd<small>begin en einde</small></span>':f[2]+'<small>'+f[3]+'</small>')+'</div>'
+      +[0,1].map(j=>'<div class="fld"><label class="lbl" for="r'+i+'_'+f[j]+'">'+(j?(f[1]==="werkTot"?"Vertrek":"Tot"):(f[1]==="werkTot"?"Aankomst":"Van"))+'</label><div class="tin"><input type="time" id="r'+i+'_'+f[j]+'" data-rk="'+f[j]+'" value="'+esc(r[f[j]]||"")+'"><button type="button" data-rnow="r'+i+'_'+f[j]+'">'+I("clock")+'Nu</button></div></div>').join("")
+      +'<div class="tot"></div></div>').join("")
+    +'<div class="kmrow reis"><div class="fld"><label class="lbl" for="r'+i+'_kmHeen">Km heenreis</label><input class="inp mono" id="r'+i+'_kmHeen" data-rk="kmHeen" inputmode="decimal" placeholder="0" value="'+esc(r.kmHeen||"")+'"></div><div class="fld"><label class="lbl" for="r'+i+'_kmTerug">Km terugreis</label><input class="inp mono" id="r'+i+'_kmTerug" data-rk="kmTerug" inputmode="decimal" placeholder="zelfde als heen" value="'+esc(r.kmTerug||"")+'"></div></div>'
+    +(ro?'':'<div class="row" style="justify-content:flex-end"><button class="btn small" type="button" data-rdel="'+i+'">'+I("trash")+'Dag verwijderen</button></div>')+'</div></details>').join(""):'<p class="muted" style="margin:0">Nog geen dagen. Kies Dag toevoegen.</p>';
+  $("regelAdd").hidden=ro}
+function setRegels(L){cur.invoer=cur.invoer||{};cur.invoer.regels=L;queueSave("regels",L)}
+function applyModes(){const v=(cur&&cur.invoer)||{};const bv=$("bonView");bv.classList.toggle("remote",isRemote(v));bv.classList.toggle("project",isProj(v));
+  document.querySelectorAll("[data-mode]").forEach(b=>{const cv=b.dataset.mode==="soort"?(isRemote(v)?"remote":"locatie"):(isProj(v)?"project":"enkel");b.setAttribute("aria-pressed",String(b.dataset.val===cv));b.disabled=!cur||cur.status==="getekend"||!canWrite()})}
+function renderTimes(){const v=(cur&&cur.invoer)||{};applyModes();$("kmTot").textContent=kmStr(kmTotal(v))+" km";const TS=tsum(v),h=TS.h,p=TS.p,w=TS.w+p,t=TS.t;
+  $("tot_p").textContent=p?hm(p):"";$("tot_h").textContent=dur(v.heenVan,v.heenTot)?hm(dur(v.heenVan,v.heenTot)):"";$("tot_w").textContent=dur(v.werkVan,v.werkTot)?hm(dur(v.werkVan,v.werkTot)):"";$("tot_t").textContent=dur(v.terugVan,v.terugTot)?hm(dur(v.terugVan,v.terugTot)):"";
   $("sumR").textContent=hm(h+t)+" ("+dec(h+t).replace(".",",")+" u)";$("sumW").textContent=hm(w)+" ("+dec(w).replace(".",",")+" u)";renderKosten()}
 function renderKosten(){if(!cur)return;const signed=cur.status==="getekend"||!canWrite();const K=signed&&cur.kosten?cur.kosten:kostCalc(cur);const o=((cur.invoer||{}).kosten)||{};
   const L=SET.medewerkers||[];$("kMwF").hidden=!L.length&&!K.medewerker;
@@ -479,6 +506,23 @@ $("sync").onclick=syncDrive;
 document.querySelectorAll("[data-k]").forEach(el=>el.addEventListener("input",()=>{if(!cur)return;const k=el.dataset.k;
   if(k==="klantNaam"){markErr(el,!el.value.trim()&&el.classList.contains("err"));if(cur.status==="getekend"||!canWrite())return;cur.klantNaam=el.value;logChange(k);markDirty();return}
   queueSave(k,el.value);if(el.type==="time"||k==="kmHeen"||k==="kmTerug")renderTimes();if(k==="vertrekadres")renderRoute()}));
+document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{if(!cur||cur.status==="getekend"||!canWrite())return;const v=cur.invoer=cur.invoer||{};
+  if(b.dataset.mode==="type"&&b.dataset.val==="project"&&!(v.regels||[]).length){ // first day takes over what was already filled in
+    const r={datum:new Date().toISOString().slice(0,10)};["heenVan","heenTot","werkVan","werkTot","terugVan","terugTot","kmHeen","kmTerug"].forEach(k=>{if(v[k])r[k]=v[k]});v.regels=[r];openRegel=0;queueSave("regels",v.regels);renderRegels()}
+  queueSave(b.dataset.mode,b.dataset.val);renderRegels();renderTimes()});
+$("regelAdd").onclick=()=>{if(!cur||cur.status==="getekend"||!canWrite())return;const L=((cur.invoer||{}).regels||[]).slice();L.push({datum:new Date().toISOString().slice(0,10)});openRegel=L.length-1;setRegels(L);renderRegels();renderTimes();
+  const d=$("regels").querySelector('[data-ri="'+openRegel+'"]');if(d)d.scrollIntoView({block:"center",behavior:"smooth"})};
+$("regels").addEventListener("toggle",e=>{const d=e.target.closest&&e.target.closest("details.regel");if(d&&d.open)openRegel=+d.dataset.ri},true);
+$("regels").addEventListener("input",e=>{const el=e.target.closest("[data-rk]");if(!el||!cur||cur.status==="getekend"||!canWrite())return;const d=el.closest("[data-ri]"),i=+d.dataset.ri;
+  const L=((cur.invoer||{}).regels||[]).map(x=>Object.assign({},x));if(!L[i])return;L[i][el.dataset.rk]=el.value;setRegels(L);d.querySelector(".rs").innerHTML=regelSum(L[i],i);renderTimes()});
+$("regels").addEventListener("click",async e=>{const n=e.target.closest("[data-rnow]");if(n){const el=$(n.dataset.rnow);const d=new Date();el.value=String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");el.dispatchEvent(new Event("input",{bubbles:true}));return}
+  const x=e.target.closest("[data-rdel]");if(!x||!canWrite())return;const i=+x.dataset.rdel;if(!await askSure("Dag "+(i+1)+" verwijderen?"))return;const L=((cur.invoer||{}).regels||[]).slice();L.splice(i,1);openRegel=-1;setRegels(L);renderRegels();renderTimes()});
+// collapsible parts of the bon; remembered per device
+(function(){let F={};try{F=JSON.parse(localStorage.getItem("wb-fold")||"{}")}catch(e){}
+  document.querySelectorAll(".sec[data-fold]").forEach(s=>{const hd=s.querySelector(":scope>header");if(!hd)return;hd.insertAdjacentHTML("beforeend",'<span class="fold">'+I("chev")+'</span>');hd.setAttribute("role","button");hd.tabIndex=0;
+    const set=c=>{s.classList.toggle("folded",c);hd.setAttribute("aria-expanded",String(!c))};set(!!F[s.dataset.fold]);
+    const tg=e=>{if(e.target.closest("a,button,input"))return;const c=!s.classList.contains("folded");set(c);F[s.dataset.fold]=c;try{localStorage.setItem("wb-fold",JSON.stringify(F))}catch(x){}};
+    hd.addEventListener("click",tg);hd.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();tg(e)}})})})();
 document.querySelectorAll("[data-now]").forEach(b=>b.onclick=()=>{const el=$(b.dataset.now);const d=new Date();el.value=String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");el.dispatchEvent(new Event("input"))});
 $("taskForm").onsubmit=e=>{e.preventDefault();const t=$("taskIn").value.trim();if(!t||!cur)return;const list=((cur.invoer||{}).taken||[]).concat([{t}]);$("taskIn").value="";queueSave("taken",list);renderTasks()};
 $("tasks").addEventListener("input",e=>{const el=e.target.closest("[data-ti]");if(!el||!cur)return;const list=((cur.invoer||{}).taken||[]).map(x=>({t:x.t}));const i=+el.dataset.ti;if(!list[i])return;list[i].t=el.value;queueSave("taken",list)});
@@ -514,7 +558,7 @@ function applyRole(){computeRole();
 /* ---------- log ---------- */
 function logWrite(what,item,detail){if(!db)return;const at=new Date().toISOString();const r={at,day:at.slice(0,10),by:myName(),what,item:String(item||"").slice(0,80)};if(detail)r.detail=String(detail).slice(0,300);
   db.collection("log").doc(at.replace(/\D/g,"")+Math.random().toString(36).slice(2,6)).set(r).catch(()=>{})}
-const LOGK={voorbVan:"voorbereiding",voorbTot:"voorbereiding",heenVan:"heenreis",heenTot:"heenreis",werkVan:"aankomst",werkTot:"vertrek",terugVan:"terugreis",terugTot:"terugreis",vertrekadres:"vertrekadres",kmHeen:"km",kmTerug:"km",constAanv:"constatering",oplAanv:"oplossing",taken:"taken",materialen:"materialen",onkosten:"onkosten",kosten:"uren en bedragen",klantNaam:"naam klant",foto:"fotobeschrijving"};
+const LOGK={soort:"op locatie/remote",type:"enkele bon/projectbon",regels:"projecttijden",voorbVan:"voorbereiding",voorbTot:"voorbereiding",heenVan:"heenreis",heenTot:"heenreis",werkVan:"aankomst",werkTot:"vertrek",terugVan:"terugreis",terugTot:"terugreis",vertrekadres:"vertrekadres",kmHeen:"km",kmTerug:"km",constAanv:"constatering",oplAanv:"oplossing",taken:"taken",materialen:"materialen",onkosten:"onkosten",kosten:"uren en bedragen",klantNaam:"naam klant",foto:"fotobeschrijving"};
 let logPend={},logPendT=0;
 function logChange(k){if(!curId)return;(logPend[curId]=logPend[curId]||new Set()).add(LOGK[k]||k);if(!logPendT)logPendT=Date.now()}
 function logFlush(force){if(!force&&(!logPendT||Date.now()-logPendT<120000))return;for(const[id,set]of Object.entries(logPend)){if(!set.size)continue;const b=id===curId?cur:bonnen.find(x=>x.id===id);logWrite("Aangepast",b&&b.velden&&b.velden.nr,[...set].join(", "))}logPend={};logPendT=0}
@@ -597,7 +641,7 @@ $("saveBtn").onclick=async()=>{try{busy("PDF maken…");const bytes=lastPdf||awa
 $("reopenBtn").onclick=()=>{$("reopenAsk").hidden=false};
 $("reopenNo").onclick=()=>{$("reopenAsk").hidden=true};
 $("reopenYes").onclick=async()=>{$("reopenAsk").hidden=true;if(!isAdmin())return;logWrite("Weer opengezet",(cur.velden||{}).nr,"was getekend door "+(cur.klantNaam||"?")+" op "+(cur.getekendOp||"?"));await db.doc("bonnen/"+curId).update({status:"open",kosten:null,handtekening:"",signedFileId:"",signedUrl:"",fotosApart:0,fotosInDrive:true,getekendOp:"",getekendTs:0,bijgewerkt:Date.now()}).catch(()=>{});lastPdf=null;$("signPrev").innerHTML="";clearSig()};
-document.querySelector("details.origpdf").addEventListener("toggle",async e=>{if(!e.target.open||$("origPrev").childElementCount||!curId)return;$("origPrev").innerHTML='<div class="busyline"><span class="spin"></span>Laden…</div>';renderPdf(await loadOrig(curId),$("origPrev"),1)});
+$("origBtn").onclick=async()=>{if(!curId)return;$("origDlg").showModal();if($("origPrev").childElementCount)return;$("origPrev").innerHTML='<div class="busyline"><span class="spin"></span>Laden…</div>';renderPdf(await loadOrig(curId),$("origPrev"),3)};
 window.addEventListener("resize",()=>{if(!$("bonView").hidden)sizeSig()});
 new ResizeObserver(()=>sizeSig()).observe($("sigBox"));
 
