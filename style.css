@@ -318,3 +318,7 @@ details.regel[open] summary>.i{transform:rotate(180deg)}
 .ltot{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-weight:600}
 .ktab .kn{font-size:13px}
 @media (max-width:560px){.lrow{grid-template-columns:minmax(0,1fr) 92px 30px}}
+/* v1.8.1: getekende handtekening blijft binnen het witte vak */
+.sigimg{flex:0 1 360px;min-width:0;width:100%;max-width:min(360px,100%)}
+.sigimg img{display:block;max-width:100%;height:auto;max-height:160px;margin:0 auto;object-fit:contain}
+#signDone>.row{flex-wrap:wrap}
