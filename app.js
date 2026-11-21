@@ -40,6 +40,10 @@ let SET=Object.assign({},DEF_SET);
 const norm=s=>String(s||"").toLowerCase().replace(/\s+/g," ").trim();
 function mwMatch(naam){const n=norm(naam);if(!n)return "";const L=SET.medewerkers||[];const m=L.find(x=>norm(x.naam)===n)||L.find(x=>norm(x.naam)&&(n.includes(norm(x.naam))||norm(x.naam).includes(n)));return m?m.naam:""}
 function pdfTarief(v){const n=pnum(String((v&&v.tarief)||"").replace(/[^\d.,]/g,""));return n&&n!==999?n:null} // MSWMenuX prints 999 when no tarief is set
+// geleverde materialen en onkosten: regels {oms,bedrag}; oude bonnen hadden één tekstveld
+function lst(v,k){v=v||{};if(Array.isArray(v[k]))return v[k];const old=k==="matRegels"?v.materialen:v.onkosten;return old&&String(old).trim()?[{oms:String(old),bedrag:""}]:[]}
+const lsum=L=>r2(L.reduce((a,r)=>a+(pnum(r.bedrag)||0),0));
+const lline=r=>String(r.oms||"").trim()+(pnum(r.bedrag)?" ("+eur(pnum(r.bedrag))+")":"");
 function kostCalc(bon){
   const v=bon.invoer||{},o=v.kosten||{},S=SET;
   const rnd=+S.afronden||0,up=m=>rnd?Math.ceil(m/rnd)*rnd:m;
@@ -57,12 +61,12 @@ function kostCalc(bon){
     {k:"reis",label:"Reistijd",qty:val("reisUren",rAuto),rate:val("reisTarief",reisAuto),o:isO("reisUren")||isO("reisTarief"),unit:"uur"},
     {k:"km",label:"Kilometers",qty:val("km",TS.km),rate:val("kmTarief",kmAuto),o:isO("km")||isO("kmTarief"),unit:"km"}];
   rows.forEach(r=>r.amt=r2(r.qty*r.rate));
-  const overig=pnum(o.overig)||0;
-  const sub=r2(rows.reduce((a,r)=>a+r.amt,0)+overig);
+  const overig=pnum(o.overig)||0,mat=lsum(lst(v,"matRegels")),onk=lsum(lst(v,"onkRegels"));
+  const sub=r2(rows.reduce((a,r)=>a+r.amt,0)+mat+onk+overig);
   const kt=o.kortingType==="€"?"€":"%",kv=pnum(o.korting)||0;
   const korting=Math.min(sub,r2(kt==="%"?sub*Math.min(kv,100)/100:kv));
   const ex=r2(sub-korting),btwPct=pnum(S.btw)??21,btw=r2(ex*btwPct/100);
-  return {rows,overig,overigOms:o.overigOms||"",sub,kortingType:kt,kortingWaarde:kv,korting,ex,btwPct,btw,incl:r2(ex+btw),medewerker:mwName,auto:{werkUren:wAuto,uurtarief:uurAuto,reisUren:rAuto,reisTarief:reisAuto,km:TS.km,kmTarief:kmAuto}};
+  return {rows,mat,onk,overig,overigOms:o.overigOms||"",sub,kortingType:kt,kortingWaarde:kv,korting,ex,btwPct,btw,incl:r2(ex+btw),medewerker:mwName,auto:{werkUren:wAuto,uurtarief:uurAuto,reisUren:rAuto,reisTarief:reisAuto,km:TS.km,kmTarief:kmAuto}};
 }
 function show(el,html,kind){el.hidden=!html;el.className="note"+(kind?" "+kind:"");el.innerHTML=html||""}
 function driveErr(e){
@@ -172,8 +176,10 @@ async function buildPdf(bon,origBytes,phs,opts){
   if(opl&&nog&&v.oplAanv)area(21,lastIn(opl.y,nog.y)-11,nog.y+12,tw,v.oplAanv,8,"Oplossing (aanvulling)");
   const taken=(v.taken||[]).map(t=>t.t).filter(Boolean);
   if(nog&&taken.length){const x=nog.x+nog.w+6;const lines=wrap(WIN(taken.join("; ")),F,8,455-x);page.drawText(lines[0],{x,y:nog.y,size:8,font:F,color:ink});if(lines[1])page.drawText(lines.length>2?lines[1].replace(/.{0,22}$/,"")+" ... (zie bijlage)":lines[1],{x,y:nog.y-10,size:8,font:F,color:ink});if(lines.length>2)extra.push({title:"Nog in te plannen taken",list:taken})}
-  if(gel&&v.materialen)area(21,gel.y-11,gel.y-30,455-21,v.materialen,8,"Geleverde of ingenomen goederen");
-  if(onk&&v.onkosten)area(onk.x+onk.w+6,onk.y,onk.y-1,455-(onk.x+onk.w+6),v.onkosten,8,"Onkosten");
+  const matL=lst(v,"matRegels").filter(r=>String(r.oms||"").trim()||pnum(r.bedrag)),onkL=lst(v,"onkRegels").filter(r=>String(r.oms||"").trim()||pnum(r.bedrag));
+  const gelT=[matL.length?"Geleverd: "+matL.map(lline).join("; "):"",String(v.ingenomen||"").trim()?"Ingenomen: "+String(v.ingenomen).trim().replace(/\s*\n\s*/g,"; "):""].filter(Boolean).join("\n");
+  if(gel&&gelT)area(21,gel.y-11,gel.y-30,455-21,gelT,8,"Geleverde en ingenomen goederen");
+  if(onk&&onkL.length)area(onk.x+onk.w+6,onk.y,onk.y-1,455-(onk.x+onk.w+6),onkL.map(lline).join("; "),8,"Onkosten");
   // costs: total ex btw in the right column, changed hourly rate in the header, details on the bijlage
   const K=bon.kosten||kostCalc(bon);
   {const trL=find("Tarief ex:");const uur=K&&K.rows[0].rate;
@@ -181,6 +187,7 @@ async function buildPdf(bon,origBytes,phs,opts){
   if(K&&K.sub>0){
     const totL=find("Totaal:",i=>i.x>440&&i.y<200&&i.y>140);if(totL)put(cx+3,totL.y,eur(K.ex),{cover:[cx,cx1],bold:true});
     const lines=K.rows.filter(r=>r.amt||r.qty).map(r=>r.label+": "+qfmt(r.qty)+" "+r.unit+" x "+eur(r.rate)+" = "+eur(r.amt));
+    if(K.mat)lines.push("Materialen: "+eur(K.mat));if(K.onk)lines.push("Onkosten: "+eur(K.onk));
     if(K.overig)lines.push("Overig"+(K.overigOms?" ("+K.overigOms+")":"")+": "+eur(K.overig));
     if(pm)lines.unshift("Voorbereiding "+v.voorbVan+" - "+v.voorbTot+" ("+hm(pm)+" u), inbegrepen in werkuren");
     lines.push("Subtotaal: "+eur(K.sub));
@@ -317,7 +324,7 @@ function fillBon(){
   $("oConst").textContent=v.constatering||"";$("oOpl").textContent=v.oplossing||"";
   document.querySelectorAll("[data-k]").forEach(el=>{const k=el.dataset.k;const val=k==="klantNaam"?(cur.klantNaam||""):(inv[k]||"");if(document.activeElement!==el&&el.value!==val)el.value=val});
   $("edit").disabled=signed||!canWrite();
-  renderRegels();renderTimes();renderTasks();renderRoute();renderPhotos();
+  renderRegels();renderTimes();renderTasks();renderRoute();renderLists();renderPhotos();
   $("signDate").textContent=cur.getekendOp||today();
   $("signOpen").hidden=signed||!canWrite();$("signDone").hidden=!signed;$("roNote").hidden=signed||canWrite();$("reopenBtn").hidden=!isAdmin();
   if(signed){$("sigImg").src=cur.handtekening||"";$("signWho").textContent=(cur.klantNaam||"").toUpperCase();$("signWhen").textContent="Getekend op "+(cur.getekendOp||"");
@@ -331,6 +338,11 @@ function regelSum(r,i){const RM=isRemote(cur&&cur.invoer);const w=dur(r.werkVan,
   return '<b>Dag '+(i+1)+'</b>'+(r.datum?'<span>'+esc(dmy(r.datum))+'</span>':'')+(r.werkVan||r.werkTot?'<span class="mono">'+esc((r.werkVan||"?")+"–"+(r.werkTot||"?"))+'</span>':'')+'<span class="mono">werk '+hm(w)+'</span>'+(rs?'<span class="mono">reis '+hm(rs)+'</span>':'')+(km?'<span class="mono">'+kmStr(km)+' km</span>':'')}
 const RF=[["heenVan","heenTot","Heenreis","reisuren",1],["werkVan","werkTot","Op locatie","aankomst en vertrek",0],["terugVan","terugTot","Terugreis","reisuren",1]];
 let openRegel=-1;
+// heenreis tot = aankomst, vertrek = terugreis van; het volgveld blijft aan te passen
+const FOLLOW={heenTot:"werkVan",werkTot:"terugVan"},FOLLOW_ID={werkVan:"t_wv",terugVan:"t_tv"};
+function follow(o,k,before,val,regel){const t=FOLLOW[k];if(!t||!val)return "";if(k==="heenTot"&&isRemote(cur&&cur.invoer))return "";if(k==="werkTot"&&isRemote(cur&&cur.invoer))return "";
+  const cv=o[t]||"",preset=!regel&&t==="werkVan"&&cv===((cur&&cur.velden)||{}).werkVanPreset;
+  if(cv&&cv!==before&&!preset)return "";if(cv===val)return "";o[t]=val;if(!regel)queueSave(t,val);return t}
 function renderRegels(){const box=$("regels");if(!box||!cur)return;const v=cur.invoer||{},L=v.regels||[];const ro=cur.status==="getekend"||!canWrite();
   box.innerHTML=L.length?L.map((r,i)=>'<details class="regel" data-ri="'+i+'"'+(i===openRegel?" open":"")+'><summary><span class="rs">'+regelSum(r,i)+'</span>'+I("chev")+'</summary><div class="rbody">'
     +'<div class="fld"><label class="lbl" for="r'+i+'_datum">Datum</label><input class="inp" type="date" id="r'+i+'_datum" data-rk="datum" value="'+esc(r.datum||"")+'"></div>'
@@ -360,11 +372,29 @@ function renderKosten(){if(!cur)return;const signed=cur.status==="getekend"||!ca
     if(el.value!==val)el.value=val});
   $("kWh").textContent=K.auto.werkUren?"berekend "+qfmt(K.auto.werkUren)+" u":"";$("kRh").textContent=K.auto.reisUren?"berekend "+qfmt(K.auto.reisUren)+" u":"";$("kKh").textContent=K.auto.km?"berekend "+qfmt(K.auto.km)+" km":"";
   ["werk","reis","km"].forEach((k,i)=>$("kA_"+k).textContent=eur(K.rows[i].amt));
+  {const inv=cur.invoer||{},n=k=>{const c=lst(inv,k).filter(r=>pnum(r.bedrag)).length;return c?c+(c===1?" regel":" regels"):"geen bedragen"};
+    $("kA_mat").textContent=eur(K.mat||0);$("kA_onk").textContent=eur(K.onk||0);$("kMatN").textContent=signed&&cur.kosten?"":n("matRegels");$("kOnkN").textContent=signed&&cur.kosten?"":n("onkRegels")}
   document.querySelectorAll("[data-kr]").forEach(b=>{b.style.visibility=signed||!b.dataset.kr.split(",").some(k=>o[k]!=null&&o[k]!=="")?"hidden":"visible"});
   const kl=K.korting?"Korting"+(K.kortingType==="%"?" "+qfmt(K.kortingWaarde)+"%":""):"";
   $("kSum").innerHTML='<span>Subtotaal</span><b>'+eur(K.sub)+'</b>'+(K.korting?'<span>'+esc(kl)+'</span><b>'+eur(-K.korting)+'</b>':'')+'<span>Totaal ex. btw</span><b>'+eur(K.ex)+'</b><span>Btw '+qfmt(K.btwPct)+'%</span><b>'+eur(K.btw)+'</b><span class="big">Totaal incl. btw</span><b class="big">'+eur(K.incl)+'</b>';
 }
-function renderRoute(){const v=(cur&&cur.velden)||{},inv=(cur&&cur.invoer)||{};const u=new URL("https://www.google.com/maps/dir/");u.searchParams.set("api","1");if(inv.vertrekadres)u.searchParams.set("origin",inv.vertrekadres);u.searchParams.set("destination",v.bezoekadres||"");u.searchParams.set("travelmode","driving");$("routeBtn").href=u.toString()}
+function renderLists(){if(!cur)return;const inv=cur.invoer||{};const ro=cur.status==="getekend"||!canWrite();
+  [["matRegels","matList","matTot","Bijv. 1x patchkabel 2m"],["onkRegels","onkList","onkTot","Bijv. parkeren"]].forEach(([k,id,tid,ph])=>{const L=lst(inv,k),box=$(id);
+    const ins=[...box.querySelectorAll("[data-li]")];
+    if(ins.length===L.length*2&&box.contains(document.activeElement)){ins.forEach(el=>{if(el!==document.activeElement){const r=L[+el.dataset.li]||{};const val=r[el.dataset.lf]||"";if(el.value!==val)el.value=val}})}
+    else box.innerHTML=L.map((r,i)=>'<div class="lrow"><input class="inp" data-li="'+i+'" data-lf="oms" value="'+esc(r.oms||"")+'" placeholder="'+ph+'" aria-label="Omschrijving" maxlength="200"><input class="inp bed" data-li="'+i+'" data-lf="bedrag" inputmode="decimal" value="'+esc(r.bedrag||"")+'" placeholder="€ 0,00" aria-label="Bedrag in euro"><button type="button" data-ldel="'+i+'" aria-label="Regel verwijderen"'+(ro?" hidden":"")+'>'+I("trash")+'</button></div>').join("")||'<p class="muted" style="margin:0;font-size:13.5px">Nog niets ingevuld.</p>';
+    const t=lsum(L);$(tid).textContent=t?"Totaal "+eur(t):""});
+  document.querySelectorAll("[data-ladd]").forEach(b=>b.hidden=ro)}
+function saveList(k,L){queueSave(k,L);const old=k==="matRegels"?"materialen":"onkosten";if((cur.invoer||{})[old])queueSave(old,"");renderLists();renderKosten()}
+/* vertrekadressen: gedeelde lijst in instellingen/adressen */
+const DEF_ADR=[{naam:"Zaak",adres:"Industrieweg 50, 3144CH Maassluis"},{naam:"Privé",adres:"Kreek 17, 3147PW Maassluis"}];
+let ADR=DEF_ADR.slice();
+const anorm=s=>norm(s).replace(/[\s,]+/g," ");
+function renderAdr(){const inv=(cur&&cur.invoer)||{},ro=!cur||cur.status==="getekend"||!canWrite(),a=anorm(inv.vertrekadres);
+  $("adrList").innerHTML=ADR.map((x,i)=>'<button type="button" class="chip" data-adr="'+i+'" aria-pressed="'+(a&&anorm(x.adres)===a)+'"'+(ro?" disabled":"")+'><b>'+esc(x.naam)+'</b><span>'+esc(x.adres)+'</span>'+(ro?'':'<span class="x" data-adrdel="'+i+'" role="button" aria-label="'+esc(x.naam)+' uit de lijst halen">×</span>')+'</button>').join("");
+  $("adrSave").hidden=ro||!a||ADR.some(x=>anorm(x.adres)===a)}
+async function saveAdr(L){ADR=L;renderAdr();try{await db.doc("instellingen/adressen").set({lijst:L})}catch(e){show($("bMsg"),"Het vertrekadres is niet opgeslagen. Probeer het opnieuw.","err")}}
+function renderRoute(){renderAdr();const v=(cur&&cur.velden)||{},inv=(cur&&cur.invoer)||{};const u=new URL("https://www.google.com/maps/dir/");u.searchParams.set("api","1");if(inv.vertrekadres)u.searchParams.set("origin",inv.vertrekadres);u.searchParams.set("destination",v.bezoekadres||"");u.searchParams.set("travelmode","driving");$("routeBtn").href=u.toString()}
 function renderTasks(){const t=((cur&&cur.invoer)||{}).taken||[];const signed=!cur||cur.status==="getekend"||!canWrite();
   const ins=[...$("tasks").querySelectorAll("[data-ti]")];
   if(!signed&&ins.length===t.length&&ins.length&&$("tasks").contains(document.activeElement)){ins.forEach((el,i)=>{if(el!==document.activeElement&&el.value!==t[i].t)el.value=t[i].t});return}
@@ -505,7 +535,20 @@ $("back").onclick=closeBon;
 $("sync").onclick=syncDrive;
 document.querySelectorAll("[data-k]").forEach(el=>el.addEventListener("input",()=>{if(!cur)return;const k=el.dataset.k;
   if(k==="klantNaam"){markErr(el,!el.value.trim()&&el.classList.contains("err"));if(cur.status==="getekend"||!canWrite())return;cur.klantNaam=el.value;logChange(k);markDirty();return}
-  queueSave(k,el.value);if(el.type==="time"||k==="kmHeen"||k==="kmTerug")renderTimes();if(k==="vertrekadres")renderRoute()}));
+  const before=(cur.invoer||{})[k];queueSave(k,el.value);if(el.type==="time"){const t=follow(cur.invoer,k,before,el.value);if(t)$(FOLLOW_ID[t]).value=cur.invoer[t]}
+  if(el.type==="time"||k==="kmHeen"||k==="kmTerug")renderTimes();if(k==="vertrekadres")renderRoute()}));
+$("adrList").addEventListener("click",async e=>{if(!cur||cur.status==="getekend"||!canWrite())return;const d=e.target.closest("[data-adrdel]");
+  if(d){e.stopPropagation();const x=ADR[+d.dataset.adrdel];if(!x||!await askSure(x.naam+" ("+x.adres+") uit de lijst met vertrekadressen halen?"))return;saveAdr(ADR.filter(y=>y!==x));logWrite("Vertrekadres verwijderd",x.naam,x.adres);return}
+  const b=e.target.closest("[data-adr]");if(!b)return;const x=ADR[+b.dataset.adr];if(!x)return;$("vertrek").value=x.adres;queueSave("vertrekadres",x.adres);renderRoute()});
+$("adrAdd").onclick=()=>{if(!cur||!canWrite())return;const adres=($("vertrek").value||"").trim(),naam=($("adrNaam").value||"").trim();
+  if(!naam){markErr($("adrNaam"),true);$("adrNaam").focus();return}markErr($("adrNaam"),false);if(!adres)return;
+  const L=ADR.filter(x=>anorm(x.naam)!==anorm(naam)).concat([{naam,adres}]);$("adrNaam").value="";saveAdr(L);logWrite("Vertrekadres toegevoegd",naam,adres)};
+document.querySelectorAll("[data-ladd]").forEach(b=>b.onclick=()=>{if(!cur||cur.status==="getekend"||!canWrite())return;const k=b.dataset.ladd;const L=lst(cur.invoer,k).map(x=>Object.assign({},x));L.push({oms:"",bedrag:""});saveList(k,L);
+  const box=$(k==="matRegels"?"matList":"onkList");const ins=box.querySelectorAll('[data-lf="oms"]');if(ins.length)ins[ins.length-1].focus()});
+["matList","onkList"].forEach(id=>{const box=$(id),k=box.dataset.lk;
+  box.addEventListener("input",e=>{const el=e.target.closest("[data-li]");if(!el||!cur||cur.status==="getekend"||!canWrite())return;const L=lst(cur.invoer,k).map(x=>Object.assign({},x));const r=L[+el.dataset.li];if(!r)return;r[el.dataset.lf]=el.value;saveList(k,L)});
+  box.addEventListener("click",e=>{const b=e.target.closest("[data-ldel]");if(!b||!cur||cur.status==="getekend"||!canWrite())return;const L=lst(cur.invoer,k).slice();L.splice(+b.dataset.ldel,1);saveList(k,L)});
+  box.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.closest("[data-li]")){e.preventDefault();e.target.blur()}})});
 document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{if(!cur||cur.status==="getekend"||!canWrite())return;const v=cur.invoer=cur.invoer||{};
   if(b.dataset.mode==="type"&&b.dataset.val==="project"&&!(v.regels||[]).length){ // first day takes over what was already filled in
     const r={datum:new Date().toISOString().slice(0,10)};["heenVan","heenTot","werkVan","werkTot","terugVan","terugTot","kmHeen","kmTerug"].forEach(k=>{if(v[k])r[k]=v[k]});v.regels=[r];openRegel=0;queueSave("regels",v.regels);renderRegels()}
@@ -514,7 +557,7 @@ $("regelAdd").onclick=()=>{if(!cur||cur.status==="getekend"||!canWrite())return;
   const d=$("regels").querySelector('[data-ri="'+openRegel+'"]');if(d)d.scrollIntoView({block:"center",behavior:"smooth"})};
 $("regels").addEventListener("toggle",e=>{const d=e.target.closest&&e.target.closest("details.regel");if(d&&d.open)openRegel=+d.dataset.ri},true);
 $("regels").addEventListener("input",e=>{const el=e.target.closest("[data-rk]");if(!el||!cur||cur.status==="getekend"||!canWrite())return;const d=el.closest("[data-ri]"),i=+d.dataset.ri;
-  const L=((cur.invoer||{}).regels||[]).map(x=>Object.assign({},x));if(!L[i])return;L[i][el.dataset.rk]=el.value;setRegels(L);d.querySelector(".rs").innerHTML=regelSum(L[i],i);renderTimes()});
+  const L=((cur.invoer||{}).regels||[]).map(x=>Object.assign({},x));if(!L[i])return;const before=L[i][el.dataset.rk];L[i][el.dataset.rk]=el.value;const t=el.type==="time"&&follow(L[i],el.dataset.rk,before,el.value,true);if(t){const f=$("r"+i+"_"+t);if(f)f.value=L[i][t]}setRegels(L);d.querySelector(".rs").innerHTML=regelSum(L[i],i);renderTimes()});
 $("regels").addEventListener("click",async e=>{const n=e.target.closest("[data-rnow]");if(n){const el=$(n.dataset.rnow);const d=new Date();el.value=String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");el.dispatchEvent(new Event("input",{bubbles:true}));return}
   const x=e.target.closest("[data-rdel]");if(!x||!canWrite())return;const i=+x.dataset.rdel;if(!await askSure("Dag "+(i+1)+" verwijderen?"))return;const L=((cur.invoer||{}).regels||[]).slice();L.splice(i,1);openRegel=-1;setRegels(L);renderRegels();renderTimes()});
 // collapsible parts of the bon; remembered per device
@@ -558,7 +601,7 @@ function applyRole(){computeRole();
 /* ---------- log ---------- */
 function logWrite(what,item,detail){if(!db)return;const at=new Date().toISOString();const r={at,day:at.slice(0,10),by:myName(),what,item:String(item||"").slice(0,80)};if(detail)r.detail=String(detail).slice(0,300);
   db.collection("log").doc(at.replace(/\D/g,"")+Math.random().toString(36).slice(2,6)).set(r).catch(()=>{})}
-const LOGK={soort:"op locatie/remote",type:"enkele bon/projectbon",regels:"projecttijden",voorbVan:"voorbereiding",voorbTot:"voorbereiding",heenVan:"heenreis",heenTot:"heenreis",werkVan:"aankomst",werkTot:"vertrek",terugVan:"terugreis",terugTot:"terugreis",vertrekadres:"vertrekadres",kmHeen:"km",kmTerug:"km",constAanv:"constatering",oplAanv:"oplossing",taken:"taken",materialen:"materialen",onkosten:"onkosten",kosten:"uren en bedragen",klantNaam:"naam klant",foto:"fotobeschrijving"};
+const LOGK={soort:"op locatie/remote",type:"enkele bon/projectbon",regels:"projecttijden",voorbVan:"voorbereiding",voorbTot:"voorbereiding",heenVan:"heenreis",heenTot:"heenreis",werkVan:"aankomst",werkTot:"vertrek",terugVan:"terugreis",terugTot:"terugreis",vertrekadres:"vertrekadres",kmHeen:"km",kmTerug:"km",constAanv:"constatering",oplAanv:"oplossing",taken:"taken",materialen:"materialen",onkosten:"onkosten",kosten:"uren en bedragen",klantNaam:"naam klant",matRegels:"materialen",onkRegels:"onkosten",ingenomen:"ingenomen goederen",foto:"fotobeschrijving"};
 let logPend={},logPendT=0;
 function logChange(k){if(!curId)return;(logPend[curId]=logPend[curId]||new Set()).add(LOGK[k]||k);if(!logPendT)logPendT=Date.now()}
 function logFlush(force){if(!force&&(!logPendT||Date.now()-logPendT<120000))return;for(const[id,set]of Object.entries(logPend)){if(!set.size)continue;const b=id===curId?cur:bonnen.find(x=>x.id===id);logWrite("Aangepast",b&&b.velden&&b.velden.nr,[...set].join(", "))}logPend={};logPendT=0}
@@ -653,6 +696,7 @@ new ResizeObserver(()=>sizeSig()).observe($("sigBox"));
   if(!user)acct=null;else{try{const[me,wr]=await Promise.all([user.me(),user.can("data.write").catch(()=>null)]);acct={me,write:wr}}catch(e){acct=null}}
   let setFirst;const setReady=new Promise(r=>setFirst=r);setTimeout(()=>setFirst(),4000);
   db.doc("instellingen/tarieven").onSnapshot(s=>{SET=Object.assign({},DEF_SET,s.exists?thaw(s.data()):{});applyRole();setFirst()},()=>{applyRole();setFirst()});
+  db.doc("instellingen/adressen").onSnapshot(s=>{const d=s.exists?thaw(s.data()):null;ADR=d&&Array.isArray(d.lijst)?d.lijst:DEF_ADR.slice();if(cur)renderAdr()},()=>{});
   await setReady;
   let first;const ready=new Promise(r=>first=r);
   db.collection("bonnen").onSnapshot(s=>{bonnen=s.docs.map(d=>Object.assign({id:d.id},thaw(d.data())));renderList();first()},e=>{first();$("list").innerHTML='<p class="empty">De werkbonnen konden niet geladen worden. Ververs de pagina.</p>'});
